@@ -84,6 +84,91 @@
     </DebugOption>
     <ExcludeFile/>
   </Target>
+  <Target name="ReleaseCooCox" isCurrent="0">
+    <Device manufacturerId="9" manufacturerName="ST" chipId="334" chipName="STM32F105RC" boardId="" boardName=""/>
+    <BuildOption>
+      <Compile>
+        <Option name="OptimizationLevel" value="2"/>
+        <Option name="UseFPU" value="0"/>
+        <Option name="UserEditCompiler" value="-ffunction-sections; -fdata-sections; -c; -fmessage-length=0;"/>
+        <Option name="SupportCPlusplus" value="0"/>
+        <Includepaths>
+          <Includepath path="."/>
+          <Includepath path="Libraries/CMSIS/CM3/CoreSupport"/>
+          <Includepath path="Libraries/CMSIS/CM3/DeviceSupport/ST/STM32F10x"/>
+          <Includepath path="Libraries/CMSIS/CM3/DeviceSupport/ST/STM32F10x/startup"/>
+          <Includepath path="src/application"/>
+          <Includepath path="src/compiler"/>
+          <Includepath path="src/decadriver"/>
+          <Includepath path="src/sys"/>
+          <Includepath path="src/usb"/>
+          <Includepath path="Libraries/STM32F10x_StdPeriph_Driver/inc"/>
+          <Includepath path="Libraries/STM32F10x_StdPeriph_Driver/src"/>
+          <Includepath path="Libraries/STM32_USB_Device_Library/Core/inc"/>
+          <Includepath path="Libraries/STM32_USB_OTG_Driver/inc"/>
+          <Includepath path="Libraries/STM32_USB_Device_Library/Class/cdc/inc"/>
+          <Includepath path="Libraries/STM32_USB_Device_Library/Class/msc/inc"/>
+          <Includepath path="src/platform"/>
+        </Includepaths>
+        <DefinedSymbols>
+          <Define name="STM32F105RC"/>
+          <Define name="STM32F10X_CL"/>
+          <Define name="USE_STDPERIPH_DRIVER"/>
+          <Define name="__ASSEMBLY__"/>
+        </DefinedSymbols>
+      </Compile>
+      <Link useDefault="0">
+        <Option name="DiscardUnusedSection" value="0"/>
+        <Option name="UserEditLinkder" value=""/>
+        <Option name="UseMemoryLayout" value="0"/>
+        <Option name="LTO" value="0"/>
+        <Option name="IsNewStartupCode" value="1"/>
+        <Option name="Library" value="Use base C Library"/>
+        <Option name="nostartfiles" value="0"/>
+        <Option name="UserEditLinker" value=""/>
+        <LinkedLibraries/>
+        <MemoryAreas debugInFlashNotRAM="1">
+          <Memory name="IROM1" type="ReadOnly" size="0x00040000" startValue="0x08000000"/>
+          <Memory name="IRAM1" type="ReadWrite" size="0x00010000" startValue="0x20000000"/>
+          <Memory name="IROM2" type="ReadOnly" size="" startValue=""/>
+          <Memory name="IRAM2" type="ReadWrite" size="" startValue=""/>
+        </MemoryAreas>
+        <LocateLinkFile path="linkers/stm32_flash_256k_ram_64k.ld" type="0"/>
+      </Link>
+      <Output>
+        <Option name="OutputFileType" value="0"/>
+        <Option name="Path" value="./"/>
+        <Option name="Name" value="RelaseCooCox"/>
+        <Option name="HEX" value="1"/>
+        <Option name="BIN" value="1"/>
+      </Output>
+      <User>
+        <UserRun name="Run#1" type="Before" checked="0" value=""/>
+        <UserRun name="Run#1" type="After" checked="0" value="arm-none-eabi-objdump -h -S &quot;${project.bin}/${output.name}.elf&quot; &gt; &quot;${project.bin}/${output.name}.lst&quot;"/>
+        <UserRun name="Run#2" type="After" checked="0" value="arm-none-eabi-size --format=berkeley &quot;${project.bin}/${output.name}.elf&quot;"/>
+      </User>
+    </BuildOption>
+    <DebugOption>
+      <Option name="org.coocox.codebugger.gdbjtag.core.adapter" value="ST-Link"/>
+      <Option name="org.coocox.codebugger.gdbjtag.core.debugMode" value="SWD"/>
+      <Option name="org.coocox.codebugger.gdbjtag.core.clockDiv" value="1M"/>
+      <Option name="org.coocox.codebugger.gdbjtag.corerunToMain" value="1"/>
+      <Option name="org.coocox.codebugger.gdbjtag.core.jlinkgdbserver" value=""/>
+      <Option name="org.coocox.codebugger.gdbjtag.core.userDefineGDBScript" value=""/>
+      <Option name="org.coocox.codebugger.gdbjtag.core.targetEndianess" value="0"/>
+      <Option name="org.coocox.codebugger.gdbjtag.core.jlinkResetMode" value="Type 0: Normal"/>
+      <Option name="org.coocox.codebugger.gdbjtag.core.resetMode" value="SYSRESETREQ"/>
+      <Option name="org.coocox.codebugger.gdbjtag.core.ifSemihost" value="0"/>
+      <Option name="org.coocox.codebugger.gdbjtag.core.ifCacheRom" value="1"/>
+      <Option name="org.coocox.codebugger.gdbjtag.core.ipAddress" value="127.0.0.1"/>
+      <Option name="org.coocox.codebugger.gdbjtag.core.portNumber" value="2009"/>
+      <Option name="org.coocox.codebugger.gdbjtag.core.autoDownload" value="1"/>
+      <Option name="org.coocox.codebugger.gdbjtag.core.verify" value="1"/>
+      <Option name="org.coocox.codebugger.gdbjtag.core.downloadFuction" value="Erase Effected"/>
+      <Option name="org.coocox.codebugger.gdbjtag.core.defaultAlgorithm" value="STM32F10x_CL_256.elf"/>
+    </DebugOption>
+    <ExcludeFile/>
+  </Target>
   <Components path="./"/>
   <Files>
     <File name="Libraries/STM32_USB_Device_Library/Core/inc/usbd_ioreq.h" path="Libraries/STM32_USB_Device_Library/Core/inc/usbd_ioreq.h" type="1"/>
