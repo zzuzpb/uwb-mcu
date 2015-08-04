@@ -25,6 +25,14 @@ extern "C" {
 #define USB_SUPPORT
 
 /*****************************************************************************************************************//*
+ * To enable LDC update (i.e. printing/ouputing range result to LCD set this to 1
+ * NOTE: it takes 3.1 ms to output/write to LCD so this is limiting when performing fast ranging
+ * (e.g. 6.8 with short slot times - wake up could be 2.25 ms, ranging exchange 1.65 ms and the LCD update 3.1 ms)
+ */
+#define LCD_UPDATE_ON (1)
+
+
+/*****************************************************************************************************************//*
  * To enable Direct Memory Access for SPI set this option to (1)
  * This option will increase speed of spi transactions but it will use an extra RAM memory buffer
  */
@@ -129,7 +137,7 @@ int is_switch_on(uint16_t GPIOpin);
 
 #define port_USARTx_busy_sending()	0 //(USART_GetFlagStatus((USARTx),(USART_FLAG_TXE))==(RESET))
 #define port_USARTx_no_data()		0 //(USART_GetFlagStatus((USARTx),(USART_FLAG_RXNE))==(RESET))
-#define port_USARTx_send_data(x)	  //USART_SendData((USARTx),(uint8_t)(x))
+#define port_USARTx_send_data(x)	0 //USART_SendData((USARTx),(uint8_t)(x))
 #define port_USARTx_receive_data()	0 //USART_ReceiveData(USARTx)
 
 #define port_SPIx_busy_sending()		(SPI_I2S_GetFlagStatus((SPIx),(SPI_I2S_FLAG_TXE))==(RESET))

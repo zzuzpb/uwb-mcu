@@ -34,7 +34,7 @@ extern void send_usbmessage(uint8*, int);
 #define SWS1_USB2SPI_MODE 0x78  //USB to SPI mode
 #define SWS1_TXSPECT_MODE 0x38  //Continuous TX spectrum mode
                              //"1234567812345678"
-#define SOFTWARE_VER_STRING    "Ver.  1.05  TREK" //16 bytes!
+#define SOFTWARE_VER_STRING    "Ver. 1.06ex TREK" //16 bytes!
 
 uint8 s1switch = 0;
 int instance_anchaddr = 0;
@@ -224,11 +224,6 @@ uint32 inittestapplication(uint8 s1switch)
 
     instance_config(&instConfig) ;                  // Set operating channel etc
 
-    instancesettagsleepdelay(POLL_SLEEP_DELAY); //set the Tag sleep time
-
-    //set the default response delays
-    instancesetreplydelay(FIXED_REPLY_DELAY_MULTI);
-
     return devID;
 }
 /**
@@ -297,7 +292,7 @@ void setLCDline1(uint8 s1switch)
 	}
 }
 
-void configureContinuousTxSpectrumMode(uint8 s1switch)
+void configure_continuous_txspectrum_mode(uint8 s1switch)
 {
     uint8 command = 0x2 ;  //return cursor home
     writetoLCD( 1, 0,  &command);
@@ -329,13 +324,14 @@ void configureContinuousTxSpectrumMode(uint8 s1switch)
  * @fn      main()
  * @brief   main entry point
 **/
+#pragma GCC optimize ("O3")
 int main(void)
 {
     int i = 0;
     //int toggle = 1;
     uint8 command = 0x0;
-
-    uint8 usbVCOMout[LCD_BUFF_LEN];
+    uint16  tagusbqidx = 0;
+    uint8 usbVCOMout[LCD_BUFF_LEN*4];
     double range_result = 0, range_raw = 0;
 
     led_off(LED_ALL); //turn off all the LEDs
@@ -441,7 +437,7 @@ int main(void)
         if((s1switch & SWS1_TXSPECT_MODE) == SWS1_TXSPECT_MODE)
     	{
         	//this function does not return!
-    		configureContinuousTxSpectrumMode(s1switch);
+        	configure_continuous_txspectrum_mode(s1switch);
     	}
 
         //sleep for 5 seconds displaying last LCD message and flashing LEDs
@@ -477,10 +473,12 @@ int main(void)
     {
         instance_run();
 
+        //if there is a new ranging report received or a new range has been calculated, then prepare data
+        //to output over USB - Virtual COM port, and update the LCD
         if(instancenewrange())
         {
         	int n = 0, l = 0, r= 0, aaddr, taddr;
-        	int rangeTime;
+        	int rangeTime, correction;
         	int rres, rres_raw;
             uint16 txa, rxa;
 
@@ -490,7 +488,8 @@ int main(void)
             aaddr = instancenewrangeancadd() & 0xf;
             taddr = instancenewrangetagadd() & 0xf;
             rangeTime = instancenewrangetim() & 0xffffffff;
-#if 1 //LCD update?
+#if (LCD_UPDATE_ON == 1)
+            //led_on(LED_PC9);
             command = 0x2 ;  //return cursor home
             writetoLCD( 1, 0,  &command);
 
@@ -510,36 +509,53 @@ int main(void)
             	sprintf((char*)&dataseq1[0], "LS  A%dT%d: %3.2f m", aaddr, taddr, range_result);
             }
             writetoLCD( 16, 1, dataseq1); //send some data
+            //led_off(LED_PC9);
 #endif
 #ifdef USB_SUPPORT //this is set in the port.h file
+            //led_on(LED_PC9);
             l = instancegetlcount() & 0xFFFF;
             r = instancegetrnum();
             txa =  instancetxantdly();
             rxa =  instancerxantdly();
             rres = ((int)(range_result*1000));
             rres_raw = ((int)(range_raw*1000));
-
-            //				anchorID tagID range countofranges rangenum
+            //correction = instance_data[0].tagSleepCorrection2;
+            // anchorID tagID range rangeraw countofranges rangenum rangetime txantdly rxantdly address
             if(instance_mode == TAG)
             {
-            	n = sprintf((char*)&usbVCOMout[0], "ma%02x t%02x %08x %08x %04x %02x %08x %04x %04x t%d", aaddr, taddr, rres, rres_raw, l, r, rangeTime, txa, rxa, tagaddr);
+            	if((tagusbqidx + 60) < (LCD_BUFF_LEN*4)) //assume we need 60 length at most (this is the report length below)
+            	{
+
+            		n = sprintf((char*)&usbVCOMout[tagusbqidx], "ma%02x t%02x %08x %08x %04x %02x %08x %04x %04x t%d\r\n", aaddr, taddr, rres, rres_raw, l, r, rangeTime, txa, rxa, tagaddr);
+            		//n = sprintf((char*)&usbVCOMout[tagusbqidx], "ma%02x t%02x %08x %08x %08x %08x %04x %04x t%d\r\n", aaddr, taddr, rres, instance_data[0].systime, instance_data[0].delayedReplyTime, rangeTime, instance_data[0].lateTX, rxa, tagaddr);
+
+            		tagusbqidx+=n;
+            	}
             }
             else if (instance_mode == ANCHOR)
             {
             	n = sprintf((char*)&usbVCOMout[0], "ma%02x t%02x %08x %08x %04x %02x %08x %04x %04x a%d", aaddr, taddr, rres, rres_raw, l, r, rangeTime, txa, rxa, ancaddr);
+                send_usbmessage(&usbVCOMout[0], n);
             }
             else
             {
             	n = sprintf((char*)&usbVCOMout[0], "ma%02x t%02x %08x %08x %04x %02x %08x %04x %04x l%d", aaddr, taddr, rres, rres_raw, l, r, rangeTime, txa, rxa, ancaddr);
+                send_usbmessage(&usbVCOMout[0], n);
             }
-            send_usbmessage(&usbVCOMout[0], n);
+            //led_off(LED_PC9);
 #endif
         }
 
-
-
 #ifdef USB_SUPPORT //this is set in the port.h file
+        if((tagusbqidx != 0) && (instance_data[0].testAppState == TA_SLEEP_DONE)) //only TX over USB when Tag sleeping
+        {
+        	send_usbmessage(&usbVCOMout[0], tagusbqidx - 2); //so we don't add another new line
+        	tagusbqidx = 0;
+        }
+
+        //led_on(LED_PC7);
         usb_run();
+        //led_off(LED_PC7);
 #endif
     }
 

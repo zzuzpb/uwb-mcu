@@ -163,7 +163,7 @@ int testapprun(instance_data_t *inst, int message)
                     shortadd = (shortadd << 8) + inst->msg_f.sourceAddr[0];
                     dwt_setaddress16(shortadd);
 
-                    //Start off by Sleeping 1st...
+                    //Start off by Sleeping 1st -> set instToSleep to TRUE
                     inst->nextState = TA_TXPOLL_WAIT_SEND;
                     inst->testAppState = TA_TXE_WAIT;
                     inst->instToSleep = TRUE ;
@@ -299,7 +299,6 @@ int testapprun(instance_data_t *inst, int message)
                 dwt_settxantennadelay(inst->txantennaDelay) ;
 
                 //set EUI as it will not be preserved unless the EUI is programmed and loaded from NVM
-				dwt_setpanid(inst->panid);
 				dwt_seteui(inst->eui64);
             }
 #else
@@ -342,7 +341,7 @@ int testapprun(instance_data_t *inst, int message)
         case TA_TXPOLL_WAIT_SEND :
             {
 
-            	inst->pollNum &= 0x1;
+            	inst->pollNum &=  (NUM_OF_POLL_RETRYS - 1);
 
             	// NOTE: For DecaRangeRTLS TREK application, we want to poll in turn anchors 0, 1, 2, and 3.
             	//       The selection of which anchor to poll next is done here !!!!
@@ -460,7 +459,7 @@ int testapprun(instance_data_t *inst, int message)
                     inst->pollNum = 2; //sent the final - reset poll number, next will be 0 because of AND with 1
                 }
 
-                //if waiting for report - set timeout to be same as a Sleep timer... if no report coming time out and send next poll or go to sleep
+                //if waiting for report - set timeout
 				dwt_setrxtimeout((uint16)inst->fwtoTime_sy); //
 				inst->done = INST_DONE_WAIT_FOR_NEXT_EVENT; //will use RX FWTO to time out (set above)
             }
@@ -513,18 +512,20 @@ int testapprun(instance_data_t *inst, int message)
                 //thus the reception of the ACK will be processed before the TX confirmation of the frame that requested it.
 				if(dw_event->type != DWT_SIG_TX_DONE) //wait for TX done confirmation
                 {
-					if(dw_event->type == DWT_SIG_RX_TIMEOUT) //got RX timeout - i.e. did not get the response (e.g. ACK)
+					if(dw_event->type != 0)
 					{
-						//printf("RX timeout in TA_TX_WAIT_CONF (%d)\n", inst->previousState);
-						//we need to wait for SIG_TX_DONE and then process the timeout and re-send the frame if needed
-						inst->gotTO = 1;
+						if(dw_event->type == DWT_SIG_RX_TIMEOUT) //got RX timeout - i.e. did not get the response (e.g. ACK)
+						{
+							//printf("RX timeout in TA_TX_WAIT_CONF (%d)\n", inst->previousState);
+							//we need to wait for SIG_TX_DONE and then process the timeout and re-send the frame if needed
+							inst->gotTO = 1;
+						}
+						if(dw_event->type == SIG_RX_ACK)
+						{
+							inst->wait4ack = 0 ; //clear the flag as the ACK has been received
+							//printf("RX ACK in TA_TX_WAIT_CONF... wait for TX confirm before changing state (%d)\n", inst->previousState);
+						}
 					}
-					if(dw_event->type == SIG_RX_ACK)
-                    {
-                        inst->wait4ack = 0 ; //clear the flag as the ACK has been received
-						//printf("RX ACK in TA_TX_WAIT_CONF... wait for TX confirm before changing state (%d)\n", inst->previousState);
-                    }
-
                     inst->done = INST_DONE_WAIT_FOR_NEXT_EVENT;
                         break;
 
@@ -676,17 +677,17 @@ int testapprun(instance_data_t *inst, int message)
                                 	int error = 0;
 
                                 	//SFRAME_PERIOD is 1024 (0x400) this is approx 1s (Mask 0x3FF == 1023)
-                                	currentSlotTime = dw_event->uTimeStamp & 0x3FF;
+                                	currentSlotTime = dw_event->uTimeStamp & (inst->sframePeriod - 1);
 
                                 	//this is the slot time the poll should be received in (Mask 0x07 for the 8 MAX tags we support in TREK)
-                                	expectedSlotTime = (srcAddr[0] & 0x7) * SLOT_PERIOD + (inst->pollNum * inst->pollPeriod); //if second poll then it is expected 12ms later
+                                	expectedSlotTime = (srcAddr[0] & (MAX_TAG_LIST_SIZE-1)) * inst->slotPeriod + (inst->pollNum * inst->pollPeriod); //if second poll then it is expected 12ms later
 
                                 	//error = expectedSlotTime - currentSlotTime
                                 	error = expectedSlotTime - currentSlotTime;
 
-									if(error < (-(SFRAME_PERIOD>>1))) //if error is more negative than 0.5 period, add whole period to give up to 1.5 period sleep
+									if(error < (-(inst->sframePeriod>>1))) //if error is more negative than 0.5 period, add whole period to give up to 1.5 period sleep
 									{
-										inst->tagSleepCorrection = (SFRAME_PERIOD + error);
+										inst->tagSleepCorrection = (inst->sframePeriod + error);
 									}
 									else //the minimum Sleep time will be 0.5 period
 									{
@@ -901,14 +902,14 @@ int testapprun(instance_data_t *inst, int message)
 
 
 // -------------------------------------------------------------------------------------------------------------------
-// function to set the fixed reply delay time (in ms)
+// function to set the fixed reply delay time (in us)
 //
 // This sets delay for RX to TX - Delayed Send, and for TX to RX delayed receive (wait for response) functionality,
 // and the frame wait timeout value to use.  This is a function of data rate, preamble length, and PRF
 
 extern uint8 dwnsSFDlen[];
 
-void instancesetreplydelay(int delayms) //delay in ms
+void instancesetreplydelay(int delayus) //delay in us
 {
     int instance = 0;
 
@@ -989,12 +990,10 @@ void instancesetreplydelay(int delayms) //delay in ms
 	instance_data[instance].fwtoTime_sy = 16 + (int)((preamblelen + ((msgdatalen + margin)/1000.0))/ 1.0256);
 
 	//this is the delay used for the delayed transmit (when sending the ranging init, response, and final messages)
-	instance_data[instance].fixedReplyDelay = convertmicrosectodevicetimeu (delayms * 1e3) ;
-
-	instance_data[instance].fixedReplyDelay_ms = (int) delayms ;
+	instance_data[instance].fixedReplyDelay = convertmicrosectodevicetimeu (delayus) ;
 
 	//this it the delay used for configuring the receiver on delay (wait for response delay),
-	instance_data[instance].fixedReplyDelay_sy = (int) (delayms * 1000 / 1.0256) - 16 - (int)((preamblelen + (msgdatalen/1000.0))/ 1.0256); //subtract 16 symbols, as receiver has a 16 symbol start up time
+	instance_data[instance].fixedReplyDelay_sy = (int) (delayus / 1.0256) - 16 - (int)((preamblelen + (msgdatalen/1000.0))/ 1.0256); //subtract 16 symbols, as receiver has a 16 symbol start up time
 
 }
 

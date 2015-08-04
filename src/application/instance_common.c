@@ -219,7 +219,6 @@ int instance_init(void)
     //dwt_geteui(instance_data[instance].eui64);
     memset(instance_data[instance].eui64, 0, ADDR_BYTE_SIZE_L);
 
-    instance_data[instance].tagSleepRnd = SLOT_PERIOD;
     instance_data[instance].tagSleepCorrection = 0;
     instance_data[instance].anchorListIndex = 0 ;
 
@@ -367,11 +366,23 @@ void instance_config(instanceConfig_t *config)
 
     if(config->dataRate == DWT_BR_110K)
     {
+        instancesettagsleepdelay(POLL_SLEEP_DELAY_110K); //set the Tag sleep time
     	instance_data[instance].pollPeriod = POLL_PERIOD_110K;
+    	instance_data[instance].sframePeriod = SFRAME_PERIOD_110K_MS;
+    	instance_data[instance].slotPeriod = SLOT_PERIOD_110K;
+        instance_data[instance].tagSleepRnd = SLOT_PERIOD_110K;
+        //set the default response delays
+        instancesetreplydelay(FIXED_REPLY_DELAY_110K);
     }
     else
     {
+        instancesettagsleepdelay(POLL_SLEEP_DELAY_6M81); //set the Tag sleep time
     	instance_data[instance].pollPeriod = POLL_PERIOD_6M81;
+    	instance_data[instance].sframePeriod = SFRAME_PERIOD_6M81_MS;
+    	instance_data[instance].slotPeriod = SLOT_PERIOD_6M81;
+        instance_data[instance].tagSleepRnd = SLOT_PERIOD_6M81;
+        //set the default response delays
+        instancesetreplydelay(FIXED_REPLY_DELAY_6M81);
 	}
 }
 
@@ -429,7 +440,7 @@ void inst_processrxtimeout(instance_data_t *inst)
     {
 
         //for tag if we get no response to second poll attempt we go to sleep
-        if((inst->pollNum == 2) && (inst->previousState == TA_TXPOLL_WAIT_SEND))
+        if((inst->pollNum == NUM_OF_POLL_RETRYS) && (inst->previousState == TA_TXPOLL_WAIT_SEND))
         {
         	inst->instToSleep = TRUE ;
         	inst->anchorListIndex = 0;
@@ -903,7 +914,7 @@ int instance_run(void)
         	nextPeriod = instance_data[instance].tagSleepRnd + instance_data[instance].tagSleepTime_ms + instance_data[instance].tagSleepCorrection;
 
         	instance_data[instance].nextSleepPeriod = (uint32) nextPeriod ; //set timeout time, CAST the positive period to UINT for correctr wrapping.
-            instance_data[instance].tagSleepCorrection = 0; //clear the correction
+        	instance_data[instance].tagSleepCorrection = 0; //clear the correction
             instance_data[instance].instancetimer_en = 1; //start timer
         }
         instance_data[instance].stoptimer = 0 ; //clear the flag - timer can run if instancetimer_en set (set above)

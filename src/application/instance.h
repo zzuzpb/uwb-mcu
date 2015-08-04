@@ -35,14 +35,10 @@ extern "C" {
 *******************************************************************************************************************
 *******************************************************************************************************************/
 
-#define USING_64BIT_ADDR (0) //when set to 0 - the TWR will use 16-bit addresses
-
 #define NUM_INST            1
 #define SPEED_OF_LIGHT      (299702547.0)     // in m/s in air
 #define MASK_40BIT			(0x00FFFFFFFFFF)  // DW1000 counter is 40 bits
 #define MASK_TXDTS			(0x00FFFFFFFE00)  //The TX timestamp will snap to 8 ns resolution - mask lower 9 bits.
-
-#define EXTRA_LENGTH	 (2)
 
 #define SIG_RX_ACK				5		// Frame Received is an ACK (length 5 bytes)
 #define SIG_RX_UNKNOWN			99		// Received an unknown frame
@@ -50,7 +46,7 @@ extern "C" {
 //Fast 2WR function codes
 #define RTLS_DEMO_MSG_TAG_POLL              (0x81)          // Tag poll message
 #define RTLS_DEMO_MSG_ANCH_RESP             (0x70)          // Anchor response to poll
-#define RTLS_DEMO_MSG_TAG_FINAL             (0x82)          // Tag final massage back to Anchor (0x29 because of 5 byte timestamps needed for PC app)
+#define RTLS_DEMO_MSG_TAG_FINAL             (0x82)          // Tag final massage back to Anchor
 #define RTLS_DEMO_MSG_ANCH_TOFR             (0x71)          // Anchor TOF Report message
 
 
@@ -88,7 +84,7 @@ extern "C" {
 
 
 #define MAX_ANCHOR_LIST_SIZE			(4) //this is limited to 4 in this application
-#define MAX_TAG_LIST_SIZE				(8)	//
+#define MAX_TAG_LIST_SIZE				(8)	//this is limited to 8 in this application
 
 #define GATEWAY_ANCHOR_ADDR				(0x8000)
 
@@ -115,34 +111,41 @@ extern "C" {
 #define POLL_RNUM                           1               // Poll message range number
 #define POLL_PNUM                           2               // Poll message poll number
 
-#define POLL_PERIOD_110K       (10)	//this is a time in ms between 1st and 2nd Polls, if Anchor 0 receives 2nd Poll then,
-#define POLL_PERIOD_6M81	   (6)  //the expected time for that Poll is Slot time + POLL_PERIOD
+#define POLL_PERIOD_110K		(10)	//this is a time in ms between 1st and 2nd Polls, if Anchor 0 receives 2nd Poll then,
+#define POLL_PERIOD_6M81		(1)		//the expected time for that 2nd Poll is slot time + POLL_PERIOD
 
-#define DELAYRX_WAIT4REPORT	(210)   //this is the time in us the RX turn on is delayed (after Final transmission and before Report reception starts)
+#define DELAYRX_WAIT4REPORT		(210)   //this is the time in us the RX turn on is delayed (after Final transmission and before Report reception starts)
 //response delay time (Tag or Anchor when sending Final/Response messages respectively)
-#define FIXED_REPLY_DELAY_MULTI				5 //5 ms response time
+#define FIXED_REPLY_DELAY_110K				5000 //us response time
+#define FIXED_REPLY_DELAY_6M81				375 //us response time
+
+#define NUM_OF_POLL_RETRYS					(2) //only 1 Poll is sent
 
 //Tag will range to 3 or 4 anchors
 //Each ranging exchange will consist of minimum of 4 messages (Poll, Response, Final and ToF Report)
 //and a maximum of 5 messages (Poll, Poll (as no Response), Response, Final and ToF Report) (could send 2 reports?)
-//Thus the ranging exchange will take either 20 ms or 25 ms.
+//Thus the ranging exchange will take either 20 ms or 25 ms for 110k
+//and 4 or 5ms for 6.81Mb.
+//Final (27bytes) is the longest message - frame duration is 3.423 ms for 110k (1024) and 194 us for 6.81Mb (128)
+//NOTE: the above times are for 110k rate with 64 symb non-standard SFD and 1024 preamble length
 
-//NOTE: the above times are for 110k rate with 64 symb non-standard SFD and 1536 preamble length
+#define SLOT_PERIOD_110K_US ((FIXED_REPLY_DELAY_110K * 5) * 4) //up to 4 anchors ~ 100 ms
+#define SLOT_PERIOD_6M81_US ((FIXED_REPLY_DELAY_6M81 * 5) * 4) //up to 4 anchors ~ 8 ms
+#define SLOT_PERIOD_110K (128) //ms - choose this so that 8 fit in 1024 ms ~ 1sec and easy to mask/correct the time
+#define N_SLOTS_110K     (4)   //thus 8 slots would fit in 1s (this matches the MAX_TAG_LIST_SIZE above)
 
-#define SLOT_PERIOD_MS ((FIXED_REPLY_DELAY_MULTI * 5) * 4) //up to 4 anchors ~ 100 ms
-#define SLOT_GUARDTIME	(25) //
+#define SLOT_PERIOD_6M81 (8)  //ms - choose this so that easy to mask/correct the time
+#define N_SLOTS_6M81     (8) //thus 32 slots would fit in 256 ms ~ 0.25 s
 
-#define SLOT_PERIOD (128) //
-#define N_SLOTS			(8) //thus 8 slots would fit in 1s
 
-#define SFRAME_PERIOD_MS 	(N_SLOTS * SLOT_PERIOD_MS) // ~ 1s
-#define SFRAME_PERIOD (1024) //ms
+#define SFRAME_PERIOD_110K_MS 	(N_SLOTS_110K * SLOT_PERIOD_110K) // ~ 1s
+#define SFRAME_PERIOD_6M81_MS 	(N_SLOTS_6M81 * SLOT_PERIOD_6M81) // ~ 0.25s
 
 //!! note - make SFRAME_PERIOD 1024 ms - this way we can just mask the system counter and not worry about wrapping
 
+#define POLL_SLEEP_DELAY_110K (SFRAME_PERIOD_110K_MS) // the minimum SLEEP time should be FRAME PERIOD so that tags don't interfere
 
-#define POLL_SLEEP_DELAY	(SFRAME_PERIOD) // the minimum SLEEP time should be FRAME PERIOD so that tags don't interfere
-
+#define POLL_SLEEP_DELAY_6M81 (SFRAME_PERIOD_6M81_MS) // the minimum SLEEP time should be FRAME PERIOD so that tags don't interfere
 
 typedef enum instanceModes{LISTENER, TAG, ANCHOR, NUM_MODES} INST_MODE;
 
@@ -347,7 +350,6 @@ typedef struct
 	int32 tagSleepRnd; //add an extra slot duration to sleep time to avoid collision before getting synced by anchor 0
 	//this is the delay used for the delayed transmit (when sending the ranging init, response, and final messages)
 	uint64 fixedReplyDelay ;
-	int fixedReplyDelay_ms ;
 
 	// xx_sy the units are 1.0256 us
 	int fixedReplyDelay_sy ;    // this is the delay used after sending a poll or response and turning on the receiver to receive response or final
@@ -400,7 +402,10 @@ typedef struct
 	uint8	rangeNum;				// incremented for each sequence of ranges
 	uint8	pollNum;
 	uint8   pollPeriod;
+	uint16  sframePeriod;
+	uint16  slotPeriod;
 	int32   tagSleepCorrection;
+	int32   tagSleepCorrection2;
 
     //diagnostic counters/data, results and logging
     uint32 tof32 ;
@@ -445,7 +450,7 @@ typedef struct
 // function to calculate and report the Time of Flight to the GUI/display
 void reportTOF(instance_data_t *inst);
 
-// clear the status/ranging data 
+// clear the status/ranging data
 void instanceclearcounts(void) ;
 
 void instance_readaccumulatordata(void);
@@ -455,15 +460,12 @@ void instance_readaccumulatordata(void);
 //
 //-------------------------------------------------------------------------------------------------------------
 
-// opent the SPI Cheetah interface - called from inittestapplication()
-int instancespiopen(void) ;  // Open SPI and return handle
-// close the SPI Cheetah interface  
 void instance_close(void);
 // Call init, then call config, then call run. call close when finished
 // initialise the instance (application) structures and DW1000 device
 int instance_init(void);
 // configure the instance and DW1000 device
-void instance_config(instanceConfig_t *config) ;  
+void instance_config(instanceConfig_t *config) ;
 
 // configure the payload and MAC address
 void instancesetaddresses(instanceAddressConfig_t *plconfig) ;
@@ -485,7 +487,7 @@ void instancesettagsleepdelay(int rangingsleep);
 void instancesetreplydelay(int delayms);
 
 // set/get the instance roles e.g. Tag/Anchor/Listener
-void instancesetrole(int mode) ;                // 
+void instancesetrole(int mode) ;                //
 int instancegetrole(void) ;
 // get the DW1000 device ID (e.g. 0xDECA0130 for DW1000)
 uint32 instancereaddeviceid(void) ;                                 // Return Device ID reg, enables validation of physical device presence
