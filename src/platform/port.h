@@ -113,28 +113,6 @@ typedef enum
 #define DECAIRQ_EXTI_USEIRQ         ENABLE
 #define DECAIRQ_EXTI_NOIRQ          DISABLE
 
-#define TA_BOOT1                 	GPIO_Pin_2
-#define TA_BOOT1_GPIO            	GPIOB
-
-#define TA_RESP_DLY                 GPIO_Pin_0
-#define TA_RESP_DLY_GPIO            GPIOC
-
-#define TA_SW1_3					GPIO_Pin_0
-#define TA_SW1_4					GPIO_Pin_1
-#define TA_SW1_5					GPIO_Pin_2
-#define TA_SW1_6					GPIO_Pin_3
-#define TA_SW1_7					GPIO_Pin_4
-#define TA_SW1_8					GPIO_Pin_5
-#define TA_SW1_GPIO                 GPIOC
-
-#define S1_SWITCH_ON  (1)
-#define S1_SWITCH_OFF (0)
-//when switch (S1) is 'on' the pin is low
-int is_switch_on(uint16_t GPIOpin);
-
-#define port_IS_TAG_pressed()		is_switch_on(TA_SW1_4)
-#define port_IS_LONGDLY_pressed()	is_dlybutton_low()
-
 #define port_USARTx_busy_sending()	0 //(USART_GetFlagStatus((USARTx),(USART_FLAG_TXE))==(RESET))
 #define port_USARTx_no_data()		0 //(USART_GetFlagStatus((USARTx),(USART_FLAG_RXNE))==(RESET))
 #define port_USARTx_send_data(x)	0 //USART_SendData((USARTx),(uint8_t)(x))

@@ -88,6 +88,16 @@ typedef struct
 
 static dwt_local_data_t dw1000local ; // Static local device data
 
+void get_part_lot_id(uint32 *part, uint32 *lot)
+{
+	if (part) {
+		*part = dw1000local.partID;
+	}
+	if (lot) {
+		*lot = dw1000local.lotID;
+	}
+}
+
 /*! ------------------------------------------------------------------------------------------------------------------
  * @fn dwt_initialise()
  *
@@ -127,6 +137,17 @@ static dwt_local_data_t dw1000local ; // Static local device data
 #define TREK_ANTDLY_2  (0xE)
 #define TREK_ANTDLY_3  (0xF)
 #define TREK_ANTDLY_4  (0x1D)
+
+uint32 get_part(void)
+{
+	unsigned ret;
+    port_SPIx_clear_chip_select();  //CS low
+    Sleep(1);   //200 us to wake up then waits 5ms for DW1000 XTAL to stabilise
+    port_SPIx_set_chip_select();  //CS high
+    Sleep(7);
+    ret = _dwt_otpread(PARTID_ADDRESS);
+    return ret;
+}
 
 int dwt_initialise(uint16 config)
 {
@@ -784,8 +805,8 @@ uint16 dwt_readantennadelay(uint8 prf)
  *                         standard PHR mode allows up to 127 bytes
  *                         if > 127 is programmed, DWT_PHRMODE_EXT needs to be set in the phrMode configuration
  *                         see dwt_configure function
- * @param txFrameBytes   - Pointer to the user’s buffer containing the data to send.
- * @param txBufferOffset - This specifies an offset in the DW1000’s TX Buffer at which to start writing data.
+ * @param txFrameBytes   - Pointer to the userï¿½s buffer containing the data to send.
+ * @param txBufferOffset - This specifies an offset in the DW1000ï¿½s TX Buffer at which to start writing data.
  *
  * output parameters
  *

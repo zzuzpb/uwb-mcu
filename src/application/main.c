@@ -319,6 +319,29 @@ void configure_continuous_txspectrum_mode(uint8 s1switch)
 
 }
 
+static struct {
+	uint32 part_low;
+	uint8  s2,s3,s4,s5,s6,s7,s8;
+} part_s1_tab[] = {
+		{ 0x2415U, 1, 1, 0, 0, 0, 0, 0},
+		{ 0x0b5fU, 1, 1, 1, 0, 0, 0, 0},
+};
+static uint8 get_s1_switch()
+{
+	size_t i;
+	uint32 get_part(void);
+	uint8  ret = 0;
+	uint32 part = get_part();
+	for (i = 0; i < sizeof(part_s1_tab)/ sizeof(part_s1_tab[0]); i++){
+		if ((part & 0xFFFFU) == part_s1_tab[i].part_low) {
+			ret = part_s1_tab[i].s2 << 1 | part_s1_tab[i].s3 << 2 | part_s1_tab[i].s4 << 3 | part_s1_tab[i].s5 << 4 |
+				  part_s1_tab[i].s6 << 5 | part_s1_tab[i].s7 << 6 | part_s1_tab[i].s8 << 7;
+			break;
+		}
+	}
+
+	return ret;
+}
 
 /*
  * @fn      main()
@@ -357,13 +380,7 @@ int main(void)
     Sleep(1000);
 #endif
 
-    s1switch = is_button_low(0) << 1 // is_switch_on(TA_SW1_2) << 2
-    		| is_switch_on(TA_SW1_3) << 2
-    		| is_switch_on(TA_SW1_4) << 3
-    		| is_switch_on(TA_SW1_5) << 4
-		    | is_switch_on(TA_SW1_6) << 5
-    		| is_switch_on(TA_SW1_7) << 6
-    		| is_switch_on(TA_SW1_8) << 7;
+    s1switch = get_s1_switch();
 
     port_DisableEXT_IRQ(); //disable ScenSor IRQ until we configure the device
 
@@ -494,6 +511,13 @@ int main(void)
             writetoLCD( 1, 0,  &command);
 
             memset(dataseq1, ' ', LCD_BUFF_LEN);
+            {
+            	void get_part_lot_id(uint32 *part, uint32 *lot);
+            	uint32 part, lot;
+            	get_part_lot_id(&part, &lot);
+            	sprintf(dataseq, "%08X%08x", part,lot);
+            }
+
             writetoLCD( 40, 1, dataseq); //send some data
 
             if(instance_mode == ANCHOR)

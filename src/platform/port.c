@@ -490,21 +490,6 @@ int GPIO_Configuration(void)
 	GPIO_Init(GPIOD, &GPIO_InitStructure);
 	GPIO_Init(GPIOE, &GPIO_InitStructure);
 
-	//Enable GPIO used for User button
-	GPIO_InitStructure.GPIO_Pin = TA_BOOT1;
-	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN_FLOATING;
-	GPIO_Init(TA_BOOT1_GPIO, &GPIO_InitStructure);
-
-	//Enable GPIO used for Response Delay setting
-	GPIO_InitStructure.GPIO_Pin = TA_RESP_DLY | TA_SW1_3 | TA_SW1_4 | TA_SW1_5 | TA_SW1_6 | TA_SW1_7 | TA_SW1_8;
-	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN_FLOATING;
-	GPIO_Init(TA_RESP_DLY_GPIO, &GPIO_InitStructure);
-
-	//Enable GPIO used for SW1 switch setting
-	GPIO_InitStructure.GPIO_Pin = TA_SW1_3 | TA_SW1_4 | TA_SW1_5 | TA_SW1_6 | TA_SW1_7 | TA_SW1_8;
-	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN_FLOATING;
-	GPIO_Init(TA_SW1_GPIO, &GPIO_InitStructure);
-
 	// Disable GPIOs clocks
 	//RCC_APB2PeriphClockCmd(
 	//					RCC_APB2Periph_GPIOA | RCC_APB2Periph_GPIOB |
@@ -685,28 +670,6 @@ int ETH_GPIOConfigure(void)
 
 	return 0;
 }
-
-int is_button_low(uint16_t GPIOpin)
-{
-	int result = 1;
-
-	if (GPIO_ReadInputDataBit(TA_BOOT1_GPIO, TA_BOOT1))
-		result = 0;
-
-	return result;
-}
-
-//when switch (S1) is 'on' the pin is low
-int is_switch_on(uint16_t GPIOpin)
-{
-	int result = 1;
-
-	if (GPIO_ReadInputDataBit(TA_SW1_GPIO, GPIOpin))
-		result = 0;
-
-	return result;
-}
-
 
 void led_off (led_t led)
 {
