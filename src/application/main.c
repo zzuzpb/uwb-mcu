@@ -22,23 +22,14 @@
 
 extern void usb_run(void);
 extern int usb_init(void);
-extern void usb_printconfig(int, uint8*, int);
+extern void usb_printconfig(int, uint8*);
 extern void send_usbmessage(uint8*, int);
 
-#define SWS1_SHF_MODE 0x02	//short frame mode (6.81M)
-#define SWS1_CH5_MODE 0x04	//channel 5 mode
-#define SWS1_ANC_MODE 0x08  //anchor mode
-#define SWS1_A1A_MODE 0x10  //anchor/tag address A1
-#define SWS1_A2A_MODE 0x20  //anchor/tag address A2
-#define SWS1_A3A_MODE 0x40  //anchor/tag address A3
-#define SWS1_USB2SPI_MODE 0x78  //USB to SPI mode
-#define SWS1_TXSPECT_MODE 0x38  //Continuous TX spectrum mode
                              //"1234567812345678"
-#define SOFTWARE_VER_STRING    "Ver. 1.06ex TREK" //16 bytes!
+#define SOFTWARE_VER_STRING    "Ver. 1.06ru TREK" //16 bytes!
 
 uint8 s1switch = 0;
 int instance_anchaddr = 0;
-int dr_mode = 0;
 int chan, tagaddr, ancaddr;
 int instance_mode = ANCHOR;
 //int instance_mode = TAG;
@@ -62,7 +53,8 @@ typedef struct
 
 
 //Configuration for DecaRangeRTLS TREK Modes (4 default use cases selected by the switch S1 [2,3] on EVB1000, indexed 0 to 3 )
-chConfig_t chConfig[4] ={
+chConfig_t chConfig =
+#if 0
                     //mode 1 - S1: 2 off, 3 off
                     {
                         2,              // channel
@@ -95,7 +87,8 @@ chConfig_t chConfig[4] ={
                         DWT_PAC32,      // pacSize
                         1,       // non-standard SFD
                         (1025 + 64 - 32) //SFD timeout
-                    },
+                    }
+#endif
                     //mode 4 - S1: 2 on, 3 on
                     {
                         5,              // channel
@@ -106,19 +99,17 @@ chConfig_t chConfig[4] ={
                         DWT_PAC8,       // pacSize
                         0,       // non-standard SFD
                         (129 + 8 - 8) //SFD timeout
-                    }
-};
+                    };
 
 
 // ======================================================
 //
 //  Configure instance tag/anchor/etc... addresses
 //
-void addressconfigure(uint8 s1switch)
+void addressconfigure(void)
 {
     instanceAddressConfig_t ipc ;
 
-    instance_anchaddr = (((s1switch & SWS1_A1A_MODE) << 2) + (s1switch & SWS1_A2A_MODE) + ((s1switch & SWS1_A3A_MODE) >> 2)) >> 4;
     if(instance_anchaddr > 3)
     {
     	ipc.anchorAddress = GATEWAY_ANCHOR_ADDR | 0x4 ; //listener
@@ -132,28 +123,7 @@ void addressconfigure(uint8 s1switch)
     instancesetaddresses(&ipc);
 }
 
-uint32 inittestapplication(uint8 s1switch);
-
-
-//returns the use case / operational mode
-int decarangingmode(uint8 s1switch)
-{
-    int mode = 0;
-
-    if(s1switch & SWS1_SHF_MODE)
-    {
-        mode = 1;
-    }
-
-    if(s1switch & SWS1_CH5_MODE)
-    {
-        mode = mode + 2;
-    }
-
-    return mode;
-}
-
-uint32 inittestapplication(uint8 s1switch)
+uint32 inittestapplication(void)
 {
     uint32 devID ;
     instanceConfig_t instConfig;
@@ -192,35 +162,18 @@ uint32 inittestapplication(uint8 s1switch)
         return(-1) ;
     }
 
-    addressconfigure(s1switch) ;                            // set up initial payload configuration
-
-    if((s1switch & SWS1_ANC_MODE) == 0)
-    {
-        instance_mode = TAG;
-    }
-    else
-    {
-        instance_mode = ANCHOR;
-
-        if(instance_anchaddr == 0x4)
-        {
-        	instance_mode = LISTENER;
-        }
-    }
+    addressconfigure() ;                            // set up initial payload configuration
 
     instancesetrole(instance_mode) ;     // Set this instance role
 
-    // get mode selection (index) this has 4 values see chConfig struct initialiser for details.
-    dr_mode = decarangingmode(s1switch);
-
-    chan = instConfig.channelNumber = chConfig[dr_mode].channel ;
-    instConfig.preambleCode = chConfig[dr_mode].preambleCode ;
-    instConfig.pulseRepFreq = chConfig[dr_mode].prf ;
-    instConfig.pacSize = chConfig[dr_mode].pacSize ;
-    instConfig.nsSFD = chConfig[dr_mode].nsSFD ;
-    instConfig.sfdTO = chConfig[dr_mode].sfdTO ;
-    instConfig.dataRate = chConfig[dr_mode].datarate ;
-    instConfig.preambleLen = chConfig[dr_mode].preambleLength ;
+    chan = instConfig.channelNumber = chConfig.channel ;
+    instConfig.preambleCode = chConfig.preambleCode ;
+    instConfig.pulseRepFreq = chConfig.prf ;
+    instConfig.pacSize = chConfig.pacSize ;
+    instConfig.nsSFD = chConfig.nsSFD ;
+    instConfig.sfdTO = chConfig.sfdTO ;
+    instConfig.dataRate = chConfig.datarate ;
+    instConfig.preambleLen = chConfig.preambleLength ;
 
     instance_config(&instConfig) ;                  // Set operating channel etc
 
@@ -263,84 +216,27 @@ void initLCD(void)
     writetoLCD( 1, 0,  &command);
 }
 
-void setLCDline1(uint8 s1switch)
-{
-	int role = instancegetrole();
-
-	sprintf((char*)&dataseq[0], "DecaRangeRTLS %s%d", (s1switch & SWS1_SHF_MODE) ? "S" : "L", chan);
-	writetoLCD( 40, 1, dataseq); //send some data
-
-	tagaddr = instance_anchaddr;
-	ancaddr = instance_anchaddr;
-
-	if(role == TAG)
-	{
-		sprintf((char*)&dataseq1[0], "Tag:%d    ", tagaddr);
-		writetoLCD( 16, 1, dataseq1); //send some data
-
-	}
-	else if(role == ANCHOR)
-	{
-		sprintf((char*)&dataseq1[0], "Anchor:%d ", ancaddr);
-		writetoLCD( 16, 1, dataseq1); //send some data
-	}
-	else
-	{
-		ancaddr = 4;
-		sprintf((char*)&dataseq1[0], "Listener ");
-		writetoLCD( 16, 1, dataseq1); //send some data
-	}
-}
-
-void configure_continuous_txspectrum_mode(uint8 s1switch)
-{
-    uint8 command = 0x2 ;  //return cursor home
-    writetoLCD( 1, 0,  &command);
-	sprintf((char*)&dataseq[0], "Continuous TX %s%d", (s1switch & SWS1_SHF_MODE) ? "S" : "L", chan);
-	writetoLCD( 40, 1, dataseq); //send some data
-	memcpy(dataseq, (const uint8 *) "Spectrum Test   ", 16);
-	writetoLCD( 16, 1, dataseq); //send some data
-
-	//configure DW1000 into Continuous TX mode
-	instance_starttxtest(0x1000);
-	//measure the power
-	//Spectrum Analyser set:
-	//FREQ to be channel default e.g. 3.9936 GHz for channel 2
-	//SPAN to 1GHz
-	//SWEEP TIME 1s
-	//RBW and VBW 1MHz
-	//measure channel power
-
-	//user has to reset the board to exit mode
-	while(1)
-	{
-		Sleep(2);
-	}
-
-}
-
-static struct {
+static struct part_configuration_t {
 	uint32 part_low;
-	uint8  s2,s3,s4,s5,s6,s7,s8;
-} part_s1_tab[] = {
-		{ 0x2415U, 1, 1, 0, 0, 0, 0, 0},
-		{ 0x0b5fU, 1, 1, 1, 0, 0, 0, 0},
+	uint32 mode;
+	uint32 no;
+} part_configuration_tab[] = {
+	{ 0x2415U, TAG    , 1 },
+	{ 0x0b5fU, ANCHOR , 0 },
 };
-static uint8 get_s1_switch()
+static void setup_modem_paramters_according_part_no(void)
 {
 	size_t i;
 	uint32 get_part(void);
-	uint8  ret = 0;
 	uint32 part = get_part();
-	for (i = 0; i < sizeof(part_s1_tab)/ sizeof(part_s1_tab[0]); i++){
-		if ((part & 0xFFFFU) == part_s1_tab[i].part_low) {
-			ret = part_s1_tab[i].s2 << 1 | part_s1_tab[i].s3 << 2 | part_s1_tab[i].s4 << 3 | part_s1_tab[i].s5 << 4 |
-				  part_s1_tab[i].s6 << 5 | part_s1_tab[i].s7 << 6 | part_s1_tab[i].s8 << 7;
+	for (i = 0; i < sizeof(part_configuration_tab)/ sizeof(part_configuration_tab[0]); i++){
+		if ((part & 0xFFFFU) == part_configuration_tab[i].part_low) {
+			const struct part_configuration_t *p = &part_configuration_tab[i];
+			instance_anchaddr = p->no;
+			instance_mode     = p->mode;
 			break;
 		}
 	}
-
-	return ret;
 }
 
 /*
@@ -380,49 +276,10 @@ int main(void)
     Sleep(1000);
 #endif
 
-    s1switch = get_s1_switch();
+    setup_modem_paramters_according_part_no();
 
     port_DisableEXT_IRQ(); //disable ScenSor IRQ until we configure the device
 
-    if((s1switch & SWS1_USB2SPI_MODE) == SWS1_USB2SPI_MODE)
-    {
-        int j = 1000000;
-
-        memset(dataseq, 0, LCD_BUFF_LEN);
-
-        while(j--);
-        command = 0x2 ;  //return cursor home
-        writetoLCD( 1, 0,  &command);
-
-        memcpy(dataseq, (const uint8 *) "DECAWAVE   ", 12);
-        writetoLCD( 40, 1, dataseq); //send some data
-#ifdef USB_SUPPORT //this is set in the port.h file
-        memcpy(dataseq, (const uint8 *) "USB-to-SPI ", 12);
-#else
-#endif
-        writetoLCD( 16, 1, dataseq); //send some data
-
-        j = 1000000;
-
-        while(j--);
-
-        command = 0x2 ;  //return cursor home
-        writetoLCD( 1, 0,  &command);
-#ifdef USB_SUPPORT //this is set in the port.h file
-        // enable the USB functionality
-        //usb_init();
-
-        NVIC_DisableDECAIRQ();
-
-        // Do nothing in foreground -- allow USB application to run, I guess on the basis of USB interrupts?
-        while (1)       // loop forever
-        {
-            usb_run();
-        }
-#endif
-        return 1;
-    }
-    else //run DecaRangeRTLS application for TREK
     {
 
         command = 0x2 ;  //return cursor home
@@ -433,7 +290,7 @@ int main(void)
 
         led_off(LED_ALL);
 
-        if(inittestapplication(s1switch) == (uint32)-1)
+        if(inittestapplication() == (uint32)-1)
         {
             led_on(LED_ALL); //to display error....
             dataseq[0] = 0x2 ;  //return cursor home
@@ -448,14 +305,8 @@ int main(void)
 
 #ifdef USB_SUPPORT //this is defined in the port.h file
         // Configure USB for output, (i.e. not USB to SPI)
-        usb_printconfig(16, (uint8 *)SOFTWARE_VER_STRING, s1switch);
+        usb_printconfig(16, (uint8 *)SOFTWARE_VER_STRING);
 #endif
-        // Is continuous spectrum test mode selected?
-        if((s1switch & SWS1_TXSPECT_MODE) == SWS1_TXSPECT_MODE)
-    	{
-        	//this function does not return!
-        	configure_continuous_txspectrum_mode(s1switch);
-    	}
 
         //sleep for 5 seconds displaying last LCD message and flashing LEDs
         i=30;
@@ -473,8 +324,6 @@ int main(void)
 
         memset(dataseq, ' ', LCD_BUFF_LEN);
         memset(dataseq1, ' ', LCD_BUFF_LEN);
-
-        setLCDline1(s1switch);
 
         command = 0x2 ;  //return cursor home
         writetoLCD( 1, 0,  &command);

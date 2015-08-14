@@ -55,11 +55,8 @@ int local_have_data = 0;
 
 int version_size;
 uint8* version;
-int s1configswitch;
 
 extern uint32_t APP_Rx_length;
-extern uint32 inittestapplication(uint8 s1switch);
-extern void setLCDline1(uint8 s1switch);
 
 void configSPIspeed(int high)
 {
@@ -231,25 +228,6 @@ int process_usbmessage(void)
 									(local_buff[3]<<16) + (local_buff[4]<<24);
 					instanceconfigtxpower(txpower);
 				}
-				if((local_buff[0] == 0x6) && (local_buff[2] == 0x6))
-				{
-					uint8 switchS1 = local_buff[1];
-
-					//disable DW1000 IRQ
-					port_DisableEXT_IRQ(); //disable IRQ until we configure the device
-					//turn DW1000 off
-					dwt_forcetrxoff();
-					//re-configure the instance
-					inittestapplication(switchS1);
-					//save the new setting
-					s1configswitch = switchS1;
-					//set the LDC
-					setLCDline1(switchS1);
-					//enable DW1000 IRQ
-					port_EnableEXT_IRQ(); //enable IRQ before starting
-
-				}
-				//d (from "deca")
 				if(local_buff[0] == 100) //d (from "deca")
 				{
 					if(local_buff[4] == 63)
@@ -267,7 +245,7 @@ int process_usbmessage(void)
 						//send a reply "n"
 						tx_buff[0] = 110;
 						memcpy(&tx_buff[1], version, version_size);
-						tx_buff[version_size+1] = s1configswitch & 0xff;
+						tx_buff[version_size+1] = ' ';
 						tx_buff[version_size+2] = '\r';
 						tx_buff[version_size+3] = '\n';
 						tx_buff_length = version_size + 4;
@@ -317,11 +295,10 @@ void send_usbmessage(uint8 *string, int len)
 **===========================================================================
 */
 
-void usb_printconfig(int size, uint8* string, int s1switch)
+void usb_printconfig(int size, uint8* string)
 {
 	application_mode = USB_PRINT_ONLY;
 
-	s1configswitch = s1switch;
 	version_size = size;
 	version = string;
 }
