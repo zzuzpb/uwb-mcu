@@ -438,6 +438,10 @@ void inst_processrxtimeout(instance_data_t *inst)
     }
 	else //if(inst->mode == TAG)
     {
+		// will continue next range, unlike origin version.
+		inst->testAppState = TA_TXE_WAIT ;
+		inst->nextState = TA_TXPOLL_WAIT_SEND ;
+		return;
 
         //for tag if we get no response to second poll attempt we go to sleep
         if((inst->pollNum == NUM_OF_POLL_RETRYS) && (inst->previousState == TA_TXPOLL_WAIT_SEND))
