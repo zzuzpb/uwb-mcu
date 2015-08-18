@@ -30,7 +30,9 @@ extern void send_usbmessage(uint8*, int);
 
 uint8 s1switch = 0;
 int instance_anchaddr = 0;
-int chan, tagaddr, ancaddr;
+#define tagaddr (instance_anchaddr)
+#define ancaddr (instance_anchaddr)
+
 int instance_mode = ANCHOR;
 //int instance_mode = TAG;
 //int instance_mode = LISTENER;
@@ -166,7 +168,7 @@ uint32 inittestapplication(void)
 
     instancesetrole(instance_mode) ;     // Set this instance role
 
-    chan = instConfig.channelNumber = chConfig.channel ;
+    instConfig.channelNumber = chConfig.channel ;
     instConfig.preambleCode = chConfig.preambleCode ;
     instConfig.pulseRepFreq = chConfig.prf ;
     instConfig.pacSize = chConfig.pacSize ;
