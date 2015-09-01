@@ -216,7 +216,7 @@ static struct part_configuration_t {
 	uint32 mode;
 	uint32 no;
 } part_configuration_tab[] = {
-	{ 0x1AA7U, ANCHOR  , 1 },
+	{ 0x1AA7U, ANCHOR  , 7 },
 	{ 0x2415U, TAG     , 1 },
 	{ 0x0b5fU, LISTENER, 2 },
 	{ 0x0242U, LISTENER, 3 },
@@ -389,7 +389,6 @@ int main(void)
             rxa =  instancerxantdly();
             rres = ((int)(range_result*1000));
             rres_raw = ((int)(range_raw*1000));
-            //correction = instance_data[0].tagSleepCorrection2;
             // anchorID tagID range rangeraw countofranges rangenum rangetime txantdly rxantdly address
             if(instance_mode == TAG)
             {

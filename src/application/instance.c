@@ -138,8 +138,6 @@ int testapprun(instance_data_t *inst, int message)
                 	uint16 mode = 0;
                 	uint16 shortadd = 0;
 
-                    inst->instancetimer_en = 0;
-                    inst->stoptimer = 1;
                     inst->gotTO = 0;
 
                     dwt_enableframefilter(DWT_FF_DATA_EN | DWT_FF_ACK_EN); //allow data, ack frames;
@@ -169,7 +167,6 @@ int testapprun(instance_data_t *inst, int message)
 					if(inst->configData.txPreambLength == DWT_PLEN_64)  //if using 64 length preamble then use the corresponding OPSet
 						mode |= DWT_LOADOPSET;
 
-				    inst->instancewaketime = portGetTickCount();
                 }
                 break;
                 case ANCHOR:
@@ -228,7 +225,6 @@ int testapprun(instance_data_t *inst, int message)
             inst->instToSleep = FALSE ;
             inst->testAppState = inst->nextState;
             inst->nextState = 0; //clear
-			inst->instancewaketime = portGetTickCount(); // Record the time count when we wake-up
             Sleep(3); //to approximate match the time spent in the #if above
 
             instancesetantennadelays(); //this will update the antenna delay if it has changed
@@ -294,8 +290,8 @@ int testapprun(instance_data_t *inst, int message)
         {
 
 				//program option octet and parameters (not used currently)
-				inst->msg_f.messageData[RES_R1] = inst->tagSleepCorrection & 0xFF;
-				inst->msg_f.messageData[RES_R2] = (inst->tagSleepCorrection >> 8) & 0xFF;
+				inst->msg_f.messageData[RES_R1] = 0;
+				inst->msg_f.messageData[RES_R2] = 0;
 
 				setupmacframedata(inst, ANCH_RESPONSE_MSG_LEN, FRAME_CRTL_AND_ADDRESS_S + FRAME_CRC, RTLS_DEMO_MSG_ANCH_RESP);
 				dwt_writetxdata(inst->psduLength, (uint8 *)  &inst->msg_f, 0) ;	// write the frame data
@@ -392,7 +388,7 @@ int testapprun(instance_data_t *inst, int message)
 				inst->previousState = TA_TXREPORT_WAIT_SEND ;
 
 				//use anchor rx timeout to timeout and re-send the ToF report
-				inst->done = INST_DONE_WAIT_FOR_NEXT_EVENT_TO;
+				inst->done = INST_NOT_DONE_YET;
 
 				inst->newrange = 1;
 
@@ -513,8 +509,6 @@ int testapprun(instance_data_t *inst, int message)
 					//int fctrladdr_len;
 					uint8 *messageData;
 
-					inst->stoptimer = 0; //clear the flag, as we have received a message
-
                     // handle 16 and 64 bit source and destination addresses
 					switch(dw_event->msgu.frame[1] & 0xCC)
 					{
@@ -575,8 +569,6 @@ int testapprun(instance_data_t *inst, int message)
 								inst->newrangepolltime = dw_event->uTimeStamp;
                                 inst->rangeNum = messageData[POLL_RNUM];
 
-                               	inst->tagSleepCorrection = 0;
-
 								inst->tagPollRxTime = dw_event->timeStamp ; //Poll's Rx time
 
                                 inst->delayedReplyTime = inst->tagPollRxTime + inst->fixedReplyDelay ;  // time we should send the response
@@ -600,8 +592,6 @@ int testapprun(instance_data_t *inst, int message)
                                     inst->testAppState = TA_RXE_WAIT ;              // wait for next frame
                                     break;
                                 }
-
-								inst->tagSleepRnd = 0; // once we have initial response from Anchor #0 the slot correction acts and we don't need this anymore
 
 								inst->anchorRespRxTime = dw_event->timeStamp ; //Response's Rx time
 

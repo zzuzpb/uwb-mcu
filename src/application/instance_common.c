@@ -211,15 +211,12 @@ int instance_init(void)
     instance_data[instance].panid = 0xdeca ;
 
     instance_data[instance].wait4ack = 0;
-    instance_data[instance].stoptimer = 0;
-    instance_data[instance].instancetimer_en = 0;
 
     instance_clearevents();
 
     //dwt_geteui(instance_data[instance].eui64);
     memset(instance_data[instance].eui64, 0, ADDR_BYTE_SIZE_L);
 
-    instance_data[instance].tagSleepCorrection = 0;
     instance_data[instance].anchorListIndex = 0 ;
 
     instance_data[instance].rxautoreenable = 0;
@@ -366,21 +363,11 @@ void instance_config(instanceConfig_t *config)
 
     if(config->dataRate == DWT_BR_110K)
     {
-        instancesettagsleepdelay(POLL_SLEEP_DELAY_110K); //set the Tag sleep time
-    	instance_data[instance].pollPeriod = POLL_PERIOD_110K;
-    	instance_data[instance].sframePeriod = SFRAME_PERIOD_110K_MS;
-    	instance_data[instance].slotPeriod = SLOT_PERIOD_110K;
-        instance_data[instance].tagSleepRnd = SLOT_PERIOD_110K;
         //set the default response delays
         instancesetreplydelay(FIXED_REPLY_DELAY_110K);
     }
     else
     {
-        instancesettagsleepdelay(POLL_SLEEP_DELAY_6M81); //set the Tag sleep time
-    	instance_data[instance].pollPeriod = POLL_PERIOD_6M81;
-    	instance_data[instance].sframePeriod = SFRAME_PERIOD_6M81_MS;
-    	instance_data[instance].slotPeriod = SLOT_PERIOD_6M81;
-        instance_data[instance].tagSleepRnd = SLOT_PERIOD_6M81;
         //set the default response delays
         instancesetreplydelay(FIXED_REPLY_DELAY_6M81);
 	}
@@ -389,12 +376,6 @@ void instance_config(instanceConfig_t *config)
 // -------------------------------------------------------------------------------------------------------------------
 // function to set the tag sleep time (in ms)
 //
-void instancesettagsleepdelay(int sleepdelay) //sleep in ms
-{
-    int instance = 0 ;
-    instance_data[instance].tagSleepTime_ms = sleepdelay; //subtract the micro system delays (time it takes to switch states etc.)
-}
-
 
 int instancegetrnum(void) //get ranging number
 {
@@ -480,8 +461,6 @@ void instance_txcallback(const dwt_callback_data_t *txd)
 	    dw_event.timeStamp <<= 32;
 		dw_event.timeStamp += dw_event.timeStamp32l;
 		dw_event.timeStamp32h = ((uint32)txTimeStamp[4] << 24) + (dw_event.timeStamp32l >> 8);
-
-		instance_data[instance].stoptimer = 0;
 
 		dw_event.rxLength = 0;
 		dw_event.type2 = dw_event.type = DWT_SIG_TX_DONE ;
@@ -618,8 +597,6 @@ void instance_rxcallback(const dwt_callback_data_t *rxd)
 		{
 			//if(rxd->dblbuff == 0)  instance_readaccumulatordata();     // for diagnostic display in DecaRanging PC window
 			//instance_calculatepower();
-
-	    	instance_data[instance].stoptimer = 1;
 
             if(instance_data[instance].ackreq == 0) //only notify there is event if no ACK pending
 	    		instance_putevent(dw_event);
@@ -879,41 +856,6 @@ int instance_run(void)
             //we've processed message
             message = 0;
         }
-
-
-
-    if(done == INST_DONE_WAIT_FOR_NEXT_EVENT_TO) //we are in RX and need to timeout (Tag needs to send another poll if no Rx frame)
-    {
-        if(instance_data[instance].mode == TAG) //Tag (is either in RX or sleeping)
-        {
-        	int32 nextPeriod ;
-
-        	// next period will be a positive number because correction is -0.5 to +1.5 periods, (and tagSleepTime_ms is the period)
-        	nextPeriod = instance_data[instance].tagSleepRnd + instance_data[instance].tagSleepTime_ms + instance_data[instance].tagSleepCorrection;
-
-        	instance_data[instance].nextSleepPeriod = (uint32) nextPeriod ; //set timeout time, CAST the positive period to UINT for correctr wrapping.
-        	instance_data[instance].tagSleepCorrection = 0; //clear the correction
-            instance_data[instance].instancetimer_en = 1; //start timer
-        }
-        instance_data[instance].stoptimer = 0 ; //clear the flag - timer can run if instancetimer_en set (set above)
-        instance_data[instance].done = INST_NOT_DONE_YET;
-    }
-
-    //check if timer has expired
-    if((instance_data[instance].instancetimer_en == 1) && (instance_data[instance].stoptimer == 0))
-    {
-        if((portGetTickCount() - instance_data[instance].instancewaketime) > instance_data[instance].nextSleepPeriod)
-        {
-			event_data_t dw_event;
-            instance_data[instance].instancetimer_en = 0;
-			dw_event.rxLength = 0;
-			dw_event.type = DWT_SIG_RX_TIMEOUT;
-			dw_event.type2 = 0x80 | DWT_SIG_RX_TIMEOUT;
-			//printf("PC timeout DWT_SIG_RX_TIMEOUT\n");
-			instance_putevent(dw_event);
-        }
-    }
-
     return 0 ;
 }
 
