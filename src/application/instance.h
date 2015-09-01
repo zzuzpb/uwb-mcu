@@ -24,10 +24,6 @@ extern "C" {
 /******************************************************************************************************************
 ********************* NOTES on DW (MP) features/options ***********************************************************
 *******************************************************************************************************************/
-#define DEEP_SLEEP (1) //To enable deep-sleep set this to 1
-//DEEP_SLEEP mode can be used, for example, by a Tag instance to put the DW1000 into low-power deep-sleep mode:
-// when the Anchor is sending the range report back to the Tag, the Tag will enter sleep after a ranging exchange is finished
-// once it receives a report or times out, before the next poll message is sent (before next ranging exchange is started).
 
 #define CORRECT_RANGE_BIAS  (1)     // Compensate for small bias due to uneven accumulator growth at close up high power
 
@@ -83,10 +79,10 @@ extern "C" {
 #define MAX_USER_PAYLOAD_STRING	MAX_USER_PAYLOAD_STRING_LL
 
 
-#define MAX_ANCHOR_LIST_SIZE			(4) //this is limited to 4 in this application
-#define MAX_TAG_LIST_SIZE				(8)	//this is limited to 8 in this application
+#define MAX_ANCHOR_LIST_SIZE			(8) //this is limited to 4 in this application
+#define MAX_TAG_LIST_SIZE				(4)	//this is limited to 8 in this application
 
-#define GATEWAY_ANCHOR_ADDR				(0x8000)
+#define ANCHOR_BASE_ADDR				(0x8000)
 
 // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 // NOTE: the maximum RX timeout is ~ 65ms
@@ -121,7 +117,7 @@ extern "C" {
 
 #define NUM_OF_POLL_RETRYS					(2) //only 1 Poll is sent
 
-//Tag will range to 3 or 4 anchors
+//Tag will range to 8 anchors
 //Each ranging exchange will consist of minimum of 4 messages (Poll, Response, Final and ToF Report)
 //and a maximum of 5 messages (Poll, Poll (as no Response), Response, Final and ToF Report) (could send 2 reports?)
 //Thus the ranging exchange will take either 20 ms or 25 ms for 110k
@@ -129,8 +125,8 @@ extern "C" {
 //Final (27bytes) is the longest message - frame duration is 3.423 ms for 110k (1024) and 194 us for 6.81Mb (128)
 //NOTE: the above times are for 110k rate with 64 symb non-standard SFD and 1024 preamble length
 
-#define SLOT_PERIOD_110K_US ((FIXED_REPLY_DELAY_110K * 5) * 4) //up to 4 anchors ~ 100 ms
-#define SLOT_PERIOD_6M81_US ((FIXED_REPLY_DELAY_6M81 * 5) * 4) //up to 4 anchors ~ 8 ms
+#define SLOT_PERIOD_110K_US ((FIXED_REPLY_DELAY_110K * 5) * 8) //up to 8 anchors ~ 100*2 ms
+#define SLOT_PERIOD_6M81_US ((FIXED_REPLY_DELAY_6M81 * 5) * 8) //up to 8 anchors ~ 8*2 ms
 #define SLOT_PERIOD_110K (128) //ms - choose this so that 8 fit in 1024 ms ~ 1sec and easy to mask/correct the time
 #define N_SLOTS_110K     (4)   //thus 8 slots would fit in 1s (this matches the MAX_TAG_LIST_SIZE above)
 
@@ -400,7 +396,6 @@ typedef struct
 
 	uint8   responseRxNum;			// response number
 	uint8	rangeNum;				// incremented for each sequence of ranges
-	uint8	pollNum;
 	uint8   pollPeriod;
 	uint16  sframePeriod;
 	uint16  slotPeriod;
@@ -410,10 +405,6 @@ typedef struct
     //diagnostic counters/data, results and logging
     uint32 tof32 ;
     uint64 tof ;
-
-	int txmsgcount;
-	int	rxmsgcount;
-	int lateTX;
 
     int longTermRangeCount ;
     uint8 lastReportSN ;
@@ -427,7 +418,6 @@ typedef struct
     int newrangetime;
     uint32 newrangepolltime;
 
-    uint8 gatewayAnchor ;
     uint8 anchorListIndex ;
 
 	//event queue - used to store DW1000 events as they are processed by the dw_isr/callback functions
@@ -436,6 +426,8 @@ typedef struct
     uint8 dweventIdxOut;
     uint8 dweventIdxIn;
 	uint8 dweventPeek;
+
+	uint32 listen_begin_time;
 
 	int dwIDLE;
 

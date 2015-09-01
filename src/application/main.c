@@ -112,14 +112,7 @@ void addressconfigure(void)
 {
     instanceAddressConfig_t ipc ;
 
-    if(instance_anchaddr > 3)
-    {
-    	ipc.anchorAddress = GATEWAY_ANCHOR_ADDR | 0x4 ; //listener
-    }
-    else
-    {
-    	ipc.anchorAddress = GATEWAY_ANCHOR_ADDR | instance_anchaddr;
-    }
+   	ipc.anchorAddress = ANCHOR_BASE_ADDR | instance_anchaddr;
     ipc.tagAddress = instance_anchaddr;
 
     instancesetaddresses(&ipc);
@@ -223,8 +216,10 @@ static struct part_configuration_t {
 	uint32 mode;
 	uint32 no;
 } part_configuration_tab[] = {
-	{ 0x2415U, TAG    , 1 },
-	{ 0x0b5fU, ANCHOR , 0 },
+	{ 0x1AA7U, ANCHOR  , 1 },
+	{ 0x2415U, TAG     , 1 },
+	{ 0x0b5fU, LISTENER, 2 },
+	{ 0x0242U, LISTENER, 3 },
 };
 static void setup_modem_paramters_according_part_no(void)
 {
@@ -414,15 +409,15 @@ int main(void)
             }
             else
             {
-            	n = sprintf((char*)&usbVCOMout[0], "ma%02x t%02x %08x %08x %04x %02x %08x %04x %04x l%d", aaddr, taddr, rres, rres_raw, l, r, rangeTime, txa, rxa, ancaddr);
-                send_usbmessage(&usbVCOMout[0], n);
+            	n = sprintf((char*)&usbVCOMout[tagusbqidx], "ma%02x t%02x %08x %08x %04x %02x %08x %04x %04x l%d\r\n", aaddr, taddr, rres, rres_raw, l, r, rangeTime, txa, rxa, ancaddr);
+        		tagusbqidx+=n;
             }
             //led_off(LED_PC9);
 #endif
         }
 
 #ifdef USB_SUPPORT //this is set in the port.h file
-        if((tagusbqidx != 0) && (instance_data[0].testAppState == TA_SLEEP_DONE)) //only TX over USB when Tag sleeping
+        if((tagusbqidx != 0)) //only TX over USB when Tag sleeping
         {
         	send_usbmessage(&usbVCOMout[0], tagusbqidx - 2); //so we don't add another new line
         	tagusbqidx = 0;

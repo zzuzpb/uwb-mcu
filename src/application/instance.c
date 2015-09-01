@@ -56,37 +56,13 @@ void instanceconfigframeheader16(instance_data_t *inst)
 
 int destaddress(instance_data_t *inst)
 {
-    int getnext = 1;
-    //set destination address (Tag will cycle though the list of anchor addresses)
-
-    //go to sleep after second poll
-    if(inst->pollNum == 0)
-    {
-		while(getnext)
-		{
-			if(inst->anchorListIndex < MAX_ANCHOR_LIST_SIZE) //Tag will always Poll 4 anchors
-			{
-				inst->msg_f.destAddr[0] = inst->anchorListIndex & 0xff;
-				inst->msg_f.destAddr[1] = (GATEWAY_ANCHOR_ADDR >> 8);
-
-				getnext = 0;
-			}
-
-			inst->anchorListIndex++ ;
-		}
-    }
-
-    if(inst->anchorListIndex < MAX_ANCHOR_LIST_SIZE)
-    {
-    	return 0;
-    }
-    else
-    {
-        //if we got this far means that we are just about to poll the last anchor in the list for the 2nd time
+ 	inst->msg_f.destAddr[0] = inst->anchorListIndex & 0xff;
+	inst->msg_f.destAddr[1] = (ANCHOR_BASE_ADDR >> 8);
+	inst->anchorListIndex++ ;
+    if(inst->anchorListIndex > MAX_ANCHOR_LIST_SIZE) {
         inst->instToSleep = TRUE ; //we'll sleep after this poll
         inst->anchorListIndex = 0; //start from the first anchor in the list after sleep finishes
-	}
-
+    }
     return 0;
 }
 
@@ -121,7 +97,6 @@ int instancesendpacket(instance_data_t *inst, int delayedTx)
     if (dwt_starttx(delayedTx | inst->wait4ack))  // delayed start was too late
     {
         result = 1; //late/error
-        inst->lateTX++;
     }
 
 
@@ -137,6 +112,20 @@ int instancesendpacket(instance_data_t *inst, int delayedTx)
 //
 int testapprun(instance_data_t *inst, int message)
 {
+	extern int instance_mode;
+	instance_mode = inst->mode;
+
+    if(inst->mode == LISTENER && inst->listen_begin_time != 0) // listen enough?
+    {
+    	uint32 current = portGetTickCount();
+        if (current - inst->listen_begin_time > 500) {
+        	inst->mode = TAG;
+        	inst->testAppState = TA_INIT;
+        	dwt_forcetrxoff();
+        	Sleep(2);
+        }
+    }
+
 
     switch (inst->testAppState)
     {
@@ -148,6 +137,10 @@ int testapprun(instance_data_t *inst, int message)
                 {
                 	uint16 mode = 0;
                 	uint16 shortadd = 0;
+
+                    inst->instancetimer_en = 0;
+                    inst->stoptimer = 1;
+                    inst->gotTO = 0;
 
                     dwt_enableframefilter(DWT_FF_DATA_EN | DWT_FF_ACK_EN); //allow data, ack frames;
                     dwt_setpanid(inst->panid);
@@ -166,11 +159,7 @@ int testapprun(instance_data_t *inst, int message)
                     //Start off by Sleeping 1st -> set instToSleep to TRUE
                     inst->nextState = TA_TXPOLL_WAIT_SEND;
                     inst->testAppState = TA_TXE_WAIT;
-                    inst->instToSleep = TRUE ;
-
-                    inst->rangeNum = 0;
-                    inst->pollNum = 0;
-                    inst->tagSleepCorrection = 0;
+                    inst->instToSleep = FALSE;
 
                     mode = (DWT_LOADUCODE|DWT_PRESRV_SLEEP|DWT_CONFIG|DWT_TANDV);
 
@@ -179,10 +168,6 @@ int testapprun(instance_data_t *inst, int message)
 
 					if(inst->configData.txPreambLength == DWT_PLEN_64)  //if using 64 length preamble then use the corresponding OPSet
 						mode |= DWT_LOADOPSET;
-
-#if (DEEP_SLEEP == 1)
-				    dwt_configuresleep(mode, DWT_WAKE_WK|DWT_WAKE_CS|DWT_SLP_EN); //configure the on wake parameters (upload the IC config settings)
-#endif
 
 				    inst->instancewaketime = portGetTickCount();
                 }
@@ -202,17 +187,7 @@ int testapprun(instance_data_t *inst, int message)
                     shortadd = (shortadd << 8) + inst->msg_f.sourceAddr[0];
                     dwt_setaddress16(shortadd);
 
-                	//if address = 0x8000
-                	if(shortadd == GATEWAY_ANCHOR_ADDR)
-                	{
-                		inst->gatewayAnchor = TRUE;
-                        dwt_enableframefilter(DWT_FF_NOTYPE_EN); //allow data, ack frames;
-                	}
-                	else //other anchors have filtering enabled - they only report their ranges with each tag
-                	{
-                		inst->gatewayAnchor = FALSE;
-                        dwt_enableframefilter(DWT_FF_DATA_EN | DWT_FF_ACK_EN); //allow data, ack frames;
-                	}
+                    dwt_enableframefilter(DWT_FF_DATA_EN | DWT_FF_ACK_EN); //allow data, ack frames;
 
                     // First time anchor listens we don't do a delayed RX
 					dwt_setrxaftertxdelay(0);
@@ -230,6 +205,7 @@ int testapprun(instance_data_t *inst, int message)
                     dwt_setrxtimeout(0);
                     //change to next state - wait to receive a message
                     inst->testAppState = TA_RXE_WAIT ;
+                    inst->listen_begin_time = portGetTickCount();
                 }
                 break ; // end case TA_INIT
                 default:
@@ -253,57 +229,7 @@ int testapprun(instance_data_t *inst, int message)
             inst->testAppState = inst->nextState;
             inst->nextState = 0; //clear
 			inst->instancewaketime = portGetTickCount(); // Record the time count when we wake-up
-#if (DEEP_SLEEP == 1)
-            {
-            	uint32 x = 0;
-                
-                //wake up device from low power mode
-                //NOTE - in the ARM  code just drop chip select for 200us
-            	led_on(LED_PC9);
-                port_SPIx_clear_chip_select();  //CS low
-                instance_data[0].dwIDLE = 0; //reset DW1000 IDLE flag
-
-                setup_DW1000RSTnIRQ(1); //enable RSTn IRQ
-
-                Sleep(2);   //200 us to wake up - need 2 as Sleep(1) is ~ 175 us
-                //then wait 5ms for DW1000 XTAL to stabilise - instead of wait we wait for RSTn to go high
-                //Sleep(5);
-
-                //need to poll to check when the DW1000 is in IDLE, the CPLL interrupt is not reliable
-                //when RSTn goes high the DW1000 is in INIT, it will enter IDLE after PLL lock (in 5 us)
-                while(instance_data[0].dwIDLE == 0) // this variable will be sent in the IRQ (process_dwRSTn_irq)
-                {
-                	 //wait for DW1000 to go to IDLE state RSTn pin to go high
-                	x++;
-                }
-                setup_DW1000RSTnIRQ(0); //disable RSTn IRQ
-                port_SPIx_set_chip_select();  //CS high
-
-                //!!! NOTE it takes ~35us for the DW1000 to download AON and lock the PLL and be in IDLE state
-                //do some dummy reads of the dev ID register to make sure DW1000 is in IDLE before setting LEDs
-            	x = dwt_readdevid(); //dummy read... need to wait for 5 us to exit INIT state (5 SPI bytes @ ~18 MHz)
-            	x = dwt_readdevid(); //dummy read... need to wait for 5 us to exit INIT state (5 SPI bytes @ ~18 MHz)
-            	x = dwt_readdevid(); //dummy read... need to wait for 5 us to exit INIT state (5 SPI bytes @ ~18 MHz)
-            	x = dwt_readdevid(); //dummy read... need to wait for 5 us to exit INIT state (5 SPI bytes @ ~18 MHz)
-
-            	x = dwt_readdevid(); //dummy read... need to wait for 5 us to exit INIT state (5 SPI bytes @ ~18 MHz)
-                /*if(x != DWT_DEVICE_ID)
-                {
-                	x = dwt_readdevid(); //dummy read... need to wait for 5 us to exit INIT state (5 SPI bytes @ ~18 MHz)
-                }*/
-                led_off(LED_PC9);
-                //this is platform dependent - only program if DW EVK/EVB
-                dwt_setleds(1);
-
-                //MP bug - TX antenna delay needs reprogramming as it is not preserved (only RX)
-                dwt_settxantennadelay(inst->txantennaDelay) ;
-
-                //set EUI as it will not be preserved unless the EUI is programmed and loaded from NVM
-				dwt_seteui(inst->eui64);
-            }
-#else
             Sleep(3); //to approximate match the time spent in the #if above
-#endif
 
             instancesetantennadelays(); //this will update the antenna delay if it has changed
             instancesettxpower(); //configure TX power if it has changed
@@ -318,18 +244,11 @@ int testapprun(instance_data_t *inst, int message)
                     && (inst->instToSleep)  //go to sleep before sending the next poll/ starting new ranging exchange
                     )
             {
-            	inst->rangeNum++; //increment the range number before going to sleep
-            	inst->pollNum = 0; //reset the poll number
-                //the app should put chip into low power state and wake up after tagSleepTime_ms time...
-                //the app could go to *_IDLE state and wait for uP to wake it up...
-                inst->done = INST_DONE_WAIT_FOR_NEXT_EVENT_TO; //don't sleep here but kick off the Sleep timer countdown
-                inst->testAppState = TA_SLEEP_DONE;
-
-#if (DEEP_SLEEP == 1)
-                //put device into low power mode
-                dwt_entersleep(); //go to sleep
-
-#endif
+            	inst->mode = LISTENER;
+            	inst->testAppState = TA_INIT;
+            	inst->done = INST_NOT_DONE_YET;
+            	inst->listen_begin_time = 0;
+            	break;
             }
             else //proceed to configuration and transmission of a frame
             {
@@ -341,19 +260,15 @@ int testapprun(instance_data_t *inst, int message)
         case TA_TXPOLL_WAIT_SEND :
             {
 
-            	inst->pollNum &=  (NUM_OF_POLL_RETRYS - 1);
-
             	// NOTE: For DecaRangeRTLS TREK application, we want to poll in turn anchors 0, 1, 2, and 3.
             	//       The selection of which anchor to poll next is done here !!!!
 				destaddress(inst); // Set Anchor Address to poll next
 
 
                 inst->msg_f.messageData[POLL_RNUM] = inst->rangeNum;
-                inst->msg_f.messageData[POLL_PNUM] = inst->pollNum;
+                inst->msg_f.messageData[POLL_PNUM] = 0;
                 setupmacframedata(inst, TAG_POLL_MSG_LEN, FRAME_CRTL_AND_ADDRESS_S + FRAME_CRC, RTLS_DEMO_MSG_TAG_POLL);
                 dwt_writetxdata(inst->psduLength, (uint8 *)  &inst->msg_f, 0) ;	// write the frame data
-
-                inst->pollNum++;
 
 				//set the delayed rx on time (the response message will be sent after this delay)
 				dwt_setrxaftertxdelay((uint32)inst->fixedReplyDelay_sy);  //units are 1.0256us - wait for wait4respTIM before RX on (delay RX)
@@ -440,25 +355,9 @@ int testapprun(instance_data_t *inst, int message)
 				//the delay here is defined by observation
 
 
-                if(instancesendpacket(inst, DWT_START_TX_DELAYED))
-                {
-                    // initiate the re-transmission
-                    inst->testAppState = TA_TXE_WAIT ;
-                    inst->nextState = TA_TXPOLL_WAIT_SEND ;
-
-					inst->wait4ack = 0; //clear the flag as the TX has failed the TRX is off
-                    break; //exit this switch case...
-                }
-                else
-                {
-
-                    inst->testAppState = TA_TX_WAIT_CONF;                                               // wait confirmation
-                    inst->previousState = TA_TXFINAL_WAIT_SEND;
-                    //inst->responseTimeouts = 0; //reset response timeout count
-
-                    inst->pollNum = 2; //sent the final - reset poll number, next will be 0 because of AND with 1
-                }
-
+                instancesendpacket(inst, DWT_START_TX_DELAYED);
+                inst->testAppState = TA_TX_WAIT_CONF;                                               // wait confirmation
+                inst->previousState = TA_TXFINAL_WAIT_SEND;
                 //if waiting for report - set timeout
 				dwt_setrxtimeout((uint16)inst->fwtoTime_sy); //
 				inst->done = INST_DONE_WAIT_FOR_NEXT_EVENT; //will use RX FWTO to time out (set above)
@@ -504,6 +403,11 @@ int testapprun(instance_data_t *inst, int message)
         case TA_TX_WAIT_CONF :
 		   //printf("TA_TX_WAIT_CONF %d m%d %d states %08x %08x\n", inst->previousState, message, inst->newReportSent, dwt_read32bitreg(0x19), dwt_read32bitreg(0x0f)) ;
 
+        		{
+        			static unsigned int x;
+        			x = inst->anchorListIndex - 1;
+        			x += 0;
+        		}
                 {
 				event_data_t* dw_event = instance_getevent(11); //get and clear this event
 
@@ -670,35 +574,8 @@ int testapprun(instance_data_t *inst, int message)
 
 								inst->newrangepolltime = dw_event->uTimeStamp;
                                 inst->rangeNum = messageData[POLL_RNUM];
-                                inst->pollNum = messageData[POLL_PNUM];
 
-                                if(inst->gatewayAnchor)
-								{
-                                	int error = 0;
-
-                                	//SFRAME_PERIOD is 1024 (0x400) this is approx 1s (Mask 0x3FF == 1023)
-                                	currentSlotTime = dw_event->uTimeStamp & (inst->sframePeriod - 1);
-
-                                	//this is the slot time the poll should be received in (Mask 0x07 for the 8 MAX tags we support in TREK)
-                                	expectedSlotTime = (srcAddr[0] & (MAX_TAG_LIST_SIZE-1)) * inst->slotPeriod + (inst->pollNum * inst->pollPeriod); //if second poll then it is expected 12ms later
-
-                                	//error = expectedSlotTime - currentSlotTime
-                                	error = expectedSlotTime - currentSlotTime;
-
-									if(error < (-(inst->sframePeriod>>1))) //if error is more negative than 0.5 period, add whole period to give up to 1.5 period sleep
-									{
-										inst->tagSleepCorrection = (inst->sframePeriod + error);
-									}
-									else //the minimum Sleep time will be 0.5 period
-									{
-										inst->tagSleepCorrection = error;
-									}
-
-								}
-                                else
-                                {
-                                	inst->tagSleepCorrection = 0;
-                                }
+                               	inst->tagSleepCorrection = 0;
 
 								inst->tagPollRxTime = dw_event->timeStamp ; //Poll's Rx time
 
@@ -724,12 +601,6 @@ int testapprun(instance_data_t *inst, int message)
                                     break;
                                 }
 
-								if((srcAddr[0] | (srcAddr[1] << 8)) == GATEWAY_ANCHOR_ADDR) //if response from gateway then use the correction factor
-								{
-									// casting received bytes to int because this is a signed correction -0.5 periods to +1.5 periods
-									inst->tagSleepCorrection = (int16) (((uint16) messageData[RES_R2] << 8) + messageData[RES_R1]);
-								}
-
 								inst->tagSleepRnd = 0; // once we have initial response from Anchor #0 the slot correction acts and we don't need this anymore
 
 								inst->anchorRespRxTime = dw_event->timeStamp ; //Response's Rx time
@@ -750,8 +621,8 @@ int testapprun(instance_data_t *inst, int message)
                                 if(inst->mode == LISTENER) //don't process any ranging messages when in Listener mode
                                 {
                                     //only enable receiver when not using double buffering
-                                    inst->testAppState = TA_RXE_WAIT ;              // wait for next frame
-                                    break;
+                                    //inst->testAppState = TA_RXE_WAIT ;              // wait for next frame
+                                    //break;
                                 }
 
 								memcpy(&inst->tof, &(messageData[TOFR]), 5);

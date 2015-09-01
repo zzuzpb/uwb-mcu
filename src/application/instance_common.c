@@ -442,23 +442,6 @@ void inst_processrxtimeout(instance_data_t *inst)
 		inst->testAppState = TA_TXE_WAIT ;
 		inst->nextState = TA_TXPOLL_WAIT_SEND ;
 		return;
-
-        //for tag if we get no response to second poll attempt we go to sleep
-        if((inst->pollNum == NUM_OF_POLL_RETRYS) && (inst->previousState == TA_TXPOLL_WAIT_SEND))
-        {
-        	inst->instToSleep = TRUE ;
-        	inst->anchorListIndex = 0;
-        }
-        //sent 1st poll to last anchor and timed out
-        //need to send second poll and not go to sleep immediately so clear the instToSleep
-        else if((inst->instToSleep == FALSE) && (inst->pollNum == 1) && (inst->previousState == TA_TXPOLL_WAIT_SEND))
-        {
-        	// inst->instToSleep = FALSE;
-        	inst->anchorListIndex = 4;  //this is the last anchor (2nd poll)
-        }
-		// initiate the re-transmission of the poll that was not responded to
-		inst->testAppState = TA_TXE_WAIT ;
-		inst->nextState = TA_TXPOLL_WAIT_SEND ;
     }
 
     //timeout - disable the radio (if using SW timeout the rx will not be off)
@@ -505,9 +488,6 @@ void instance_txcallback(const dwt_callback_data_t *txd)
 
 		instance_putevent(dw_event);
 
-#if (DEEP_SLEEP == 1)
-		instance_data[instance].txmsgcount++;
-#endif
 		//printf("TX time %f ecount %d\n",convertdevicetimetosecu(instance_data[instance].txu.txTimeStamp), instance_data[instance].dweventCnt);
 		//printf("TX Timestamp: %4.15e\n", convertdevicetimetosecu(instance_data[instance].txu.txTimeStamp));
 #if (DECA_SUPPORT_SOUNDING==1)
@@ -661,18 +641,12 @@ void instance_rxcallback(const dwt_callback_data_t *rxd)
 			//printf("RX OK %d ", instance_data[instance].testAppState);
 			//printf("RX time %f ecount %d\n",convertdevicetimetosecu(dw_event.timeStamp), instance_data[instance].dweventCnt);
 
-	#if (DEEP_SLEEP == 1)
-			instance_data[instance].rxmsgcount++;
-	#endif
 		}
 		else if (rxd_event == SIG_RX_ACK)
 		{
 			//printf("RX ACK %d (count %d) \n", instance_data[instance].testAppState, instance_data[instance].dweventCnt);
 			instance_putevent(dw_event);
 			//if(rxd->dblbuff == 0) instance_readaccumulatordata();     // for diagnostic display
-	#if (DEEP_SLEEP == 1)
-			instance_data[instance].rxmsgcount++;
-	#endif
 		}
 
 		/*if(instance_data[instance].mode == LISTENER) //print out the message bytes when in Listener mode
