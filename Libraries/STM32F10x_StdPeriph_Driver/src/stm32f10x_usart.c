@@ -233,11 +233,6 @@ void USART_Init(USART_TypeDef* USARTx, USART_InitTypeDef* USART_InitStruct)
 /*---------------------------- USART BRR Configuration -----------------------*/
   /* Configure the USART Baud Rate -------------------------------------------*/
   RCC_GetClocksFreq(&RCC_ClocksStatus);
-  if (usartxbase == USART1_BASE)
-  {
-    apbclock = RCC_ClocksStatus.PCLK2_Frequency;
-  }
-  else
   {
     apbclock = RCC_ClocksStatus.PCLK1_Frequency;
   }
@@ -431,7 +426,7 @@ void USART_ITConfig(USART_TypeDef* USARTx, uint16_t USART_IT, FunctionalState Ne
 }
 
 /**
-  * @brief  Enables or disables the USART’s DMA interface.
+  * @brief  Enables or disables the USARTï¿½s DMA interface.
   * @param  USARTx: Select the USART or the UART peripheral. 
   *   This parameter can be one of the following values:
   *   USART1, USART2, USART3, UART4 or UART5.
@@ -555,7 +550,7 @@ void USART_LINBreakDetectLengthConfig(USART_TypeDef* USARTx, uint16_t USART_LINB
 }
 
 /**
-  * @brief  Enables or disables the USART’s LIN mode.
+  * @brief  Enables or disables the USARTï¿½s LIN mode.
   * @param  USARTx: Select the USART or the UART peripheral. 
   *   This parameter can be one of the following values:
   *   USART1, USART2, USART3, UART4 or UART5.
@@ -670,7 +665,7 @@ void USART_SetPrescaler(USART_TypeDef* USARTx, uint8_t USART_Prescaler)
 }
 
 /**
-  * @brief  Enables or disables the USART’s Smart Card mode.
+  * @brief  Enables or disables the USARTï¿½s Smart Card mode.
   * @param  USARTx: where x can be 1, 2 or 3 to select the USART peripheral.
   * @param  NewState: new state of the Smart Card mode.
   *   This parameter can be: ENABLE or DISABLE.     
@@ -720,7 +715,7 @@ void USART_SmartCardNACKCmd(USART_TypeDef* USARTx, FunctionalState NewState)
 }
 
 /**
-  * @brief  Enables or disables the USART’s Half Duplex communication.
+  * @brief  Enables or disables the USARTï¿½s Half Duplex communication.
   * @param  USARTx: Select the USART or the UART peripheral. 
   *   This parameter can be one of the following values:
   *   USART1, USART2, USART3, UART4 or UART5.

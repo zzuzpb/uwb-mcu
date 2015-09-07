@@ -260,9 +260,11 @@ int RCC_Configuration(void)
 
 int USART_Configuration(void)
 {
-#if 0
+#if 1
 	USART_InitTypeDef USART_InitStructure;
 	GPIO_InitTypeDef GPIO_InitStructure;
+
+	RCC_APB2PeriphClockCmd(RCC_APB2Periph_USART1 , ENABLE);
 
 	// USARTx setup
 	USART_InitStructure.USART_BaudRate = 115200;

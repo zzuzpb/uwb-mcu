@@ -22,8 +22,6 @@ extern "C" {
 #include "compiler.h"
 #include "stm32f10x.h"
 
-#define USB_SUPPORT
-
 /*****************************************************************************************************************//*
  * To enable LDC update (i.e. printing/ouputing range result to LCD set this to 1
  * NOTE: it takes 3.1 ms to output/write to LCD so this is limiting when performing fast ranging
@@ -113,10 +111,15 @@ typedef enum
 #define DECAIRQ_EXTI_USEIRQ         ENABLE
 #define DECAIRQ_EXTI_NOIRQ          DISABLE
 
-#define port_USARTx_busy_sending()	0 //(USART_GetFlagStatus((USARTx),(USART_FLAG_TXE))==(RESET))
-#define port_USARTx_no_data()		0 //(USART_GetFlagStatus((USARTx),(USART_FLAG_RXNE))==(RESET))
-#define port_USARTx_send_data(x)	0 //USART_SendData((USARTx),(uint8_t)(x))
-#define port_USARTx_receive_data()	0 //USART_ReceiveData(USARTx)
+#define USARTx						USART1
+#define USARTx_GPIO					GPIOA
+#define USARTx_TX					GPIO_Pin_9
+#define USARTx_RX					GPIO_Pin_10
+
+#define port_USARTx_busy_sending()	(USART_GetFlagStatus((USARTx),(USART_FLAG_TXE))==(RESET))
+#define port_USARTx_no_data()		(USART_GetFlagStatus((USARTx),(USART_FLAG_RXNE))==(RESET))
+#define port_USARTx_send_data(x)	USART_SendData((USARTx),(uint8_t)(x))
+#define port_USARTx_receive_data()	USART_ReceiveData(USARTx)
 
 #define port_SPIx_busy_sending()		(SPI_I2S_GetFlagStatus((SPIx),(SPI_I2S_FLAG_TXE))==(RESET))
 #define port_SPIx_no_data()				(SPI_I2S_GetFlagStatus((SPIx),(SPI_I2S_FLAG_RXNE))==(RESET))
