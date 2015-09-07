@@ -763,3 +763,16 @@ void spi_peripheral_init()
 
 	port_LCD_RW_clear();
 }
+
+void UartSend(const char *str)
+{
+	const char *p = str;
+	for(;;) {
+		char c = *p++;
+		if (c == '\0') {
+			break;
+		}
+		while (port_USARTx_busy_sending());
+		port_USARTx_send_data(c);
+	}
+}

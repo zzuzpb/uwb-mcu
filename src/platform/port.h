@@ -27,7 +27,7 @@ extern "C" {
  * NOTE: it takes 3.1 ms to output/write to LCD so this is limiting when performing fast ranging
  * (e.g. 6.8 with short slot times - wake up could be 2.25 ms, ranging exchange 1.65 ms and the LCD update 3.1 ms)
  */
-#define LCD_UPDATE_ON (1)
+#define LCD_UPDATE_ON (0)
 
 
 /*****************************************************************************************************************//*
@@ -193,6 +193,8 @@ unsigned long portGetTickCnt(void);
 
 void reset_DW1000(void);
 void setup_DW1000RSTnIRQ(int enable);
+
+void UartSend(const char *str);
 
 #ifdef __cplusplus
 }

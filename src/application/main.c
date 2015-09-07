@@ -20,14 +20,6 @@
 
 #include "deca_spi.h"
 
-extern void usb_run(void);
-extern int usb_init(void);
-extern void usb_printconfig(int, uint8*);
-extern void send_usbmessage(uint8*, int);
-
-                             //"1234567812345678"
-#define SOFTWARE_VER_STRING    "Ver. 1.06ru TREK" //16 bytes!
-
 uint8 s1switch = 0;
 int instance_anchaddr = 0;
 #define tagaddr (instance_anchaddr)
@@ -36,10 +28,6 @@ int instance_anchaddr = 0;
 int instance_mode = ANCHOR;
 //int instance_mode = TAG;
 //int instance_mode = LISTENER;
-
-#define LCD_BUFF_LEN (80)
-uint8 dataseq[LCD_BUFF_LEN];
-uint8 dataseq1[LCD_BUFF_LEN];
 
 typedef struct
 {
@@ -196,30 +184,17 @@ void process_deca_irq(void)
 
 }
 
-void initLCD(void)
-{
-    uint8 initseq[9] = { 0x39, 0x14, 0x55, 0x6D, 0x78, 0x38 /*0x3C*/, 0x0C, 0x01, 0x06 };
-    uint8 command = 0x0;
-    int j = 100000;
-
-    writetoLCD( 9, 0,  initseq); //init seq
-    while(j--);
-
-    command = 0x2 ;  //return cursor home
-    writetoLCD( 1, 0,  &command);
-    command = 0x1 ;  //clear screen
-    writetoLCD( 1, 0,  &command);
-}
-
 static struct part_configuration_t {
 	uint32 part_low;
 	uint32 mode;
 	uint32 no;
 } part_configuration_tab[] = {
 	{ 0x1AA7U, ANCHOR  , 7 },
-	{ 0x2415U, TAG     , 1 },
+	{ 0x2415U, LISTENER, 1 },
 	{ 0x0b5fU, LISTENER, 2 },
-	{ 0x0242U, LISTENER, 3 },
+	{ 0x0242U, ANCHOR  , 6 },
+	{ 0x101eU, LISTENER, 0 },
+	{ 0x1024U, LISTENER, 3 },
 };
 static void setup_modem_paramters_according_part_no(void)
 {
@@ -245,33 +220,14 @@ int main(void)
 {
     int i = 0;
     //int toggle = 1;
-    uint8 command = 0x0;
-    uint16  tagusbqidx = 0;
-    uint8 usbVCOMout[LCD_BUFF_LEN*4];
     double range_result = 0, range_raw = 0;
 
     led_off(LED_ALL); //turn off all the LEDs
 
     peripherals_init();
+    UartSend("Hello RTLS System(v0.9a) by X-Lab, Huaqin\r\n");
 
     spi_peripheral_init();
-
-    Sleep(1000); //wait for LCD to power on
-
-    initLCD();
-
-    memset(dataseq, 0, LCD_BUFF_LEN);
-    memcpy(dataseq, (const uint8 *) "DECAWAVE        ", 16);
-    writetoLCD( 40, 1, dataseq); //send some data
-    memcpy(dataseq, (const uint8 *) SOFTWARE_VER_STRING, 16); // Also set at line #26 (Should make this from single value !!!)
-    writetoLCD( 16, 1, dataseq); //send some data
-
-    Sleep(1000);
-#ifdef USB_SUPPORT
-    // enable the USB functionality
-    usb_init();
-    Sleep(1000);
-#endif
 
     setup_modem_paramters_according_part_no();
 
@@ -279,57 +235,16 @@ int main(void)
 
     {
 
-        command = 0x2 ;  //return cursor home
-        writetoLCD( 1, 0,  &command);
-        memset(dataseq, ' ', LCD_BUFF_LEN);
-        memcpy(dataseq, (const uint8 *) "DECAWAVE   TREK ", 16);
-        writetoLCD( 16, 1, dataseq); //send some data
-
         led_off(LED_ALL);
 
         if(inittestapplication() == (uint32)-1)
         {
             led_on(LED_ALL); //to display error....
-            dataseq[0] = 0x2 ;  //return cursor home
-            writetoLCD( 1, 0,  &dataseq[0]);
-            memset(dataseq, ' ', LCD_BUFF_LEN);
-            memcpy(dataseq, (const uint8 *) "ERROR   ", 12);
-            writetoLCD( 40, 1, dataseq); //send some data
-            memcpy(dataseq, (const uint8 *) "  INIT FAIL ", 12);
-            writetoLCD( 40, 1, dataseq); //send some data
             return 0; //error
         }
-
-#ifdef USB_SUPPORT //this is defined in the port.h file
-        // Configure USB for output, (i.e. not USB to SPI)
-        usb_printconfig(16, (uint8 *)SOFTWARE_VER_STRING);
-#endif
-
-        //sleep for 5 seconds displaying last LCD message and flashing LEDs
-        i=30;
-        while(i--)
-        {
-            if (i & 1) led_off(LED_ALL);
-            else    led_on(LED_ALL);
-
-            Sleep(200);
-        }
-        i = 0;
-        led_off(LED_ALL);
-        command = 0x2 ;  //return cursor home
-        writetoLCD( 1, 0,  &command);
-
-        memset(dataseq, ' ', LCD_BUFF_LEN);
-        memset(dataseq1, ' ', LCD_BUFF_LEN);
-
-        command = 0x2 ;  //return cursor home
-        writetoLCD( 1, 0,  &command);
     }
 
     port_EnableEXT_IRQ(); //enable ScenSor IRQ before starting
-
-    //memset(dataseq, ' ', LCD_BUFF_LEN);
-    memset(dataseq1, ' ', LCD_BUFF_LEN);
 
     // main loop
     while(1)
@@ -344,6 +259,7 @@ int main(void)
         	int rangeTime, correction;
         	int rres, rres_raw;
             uint16 txa, rxa;
+            char buf[100];
 
             //send the new range information to LCD and/or USB
             range_result = instancegetidist();
@@ -351,81 +267,10 @@ int main(void)
             aaddr = instancenewrangeancadd() & 0xf;
             taddr = instancenewrangetagadd() & 0xf;
             rangeTime = instancenewrangetim() & 0xffffffff;
-#if (LCD_UPDATE_ON == 1)
-            //led_on(LED_PC9);
-            command = 0x2 ;  //return cursor home
-            writetoLCD( 1, 0,  &command);
-
-            memset(dataseq1, ' ', LCD_BUFF_LEN);
-            {
-            	void get_part_lot_id(uint32 *part, uint32 *lot);
-            	uint32 part, lot;
-            	get_part_lot_id(&part, &lot);
-            	sprintf(dataseq, "%08X%08x", part,lot);
-            }
-
-            writetoLCD( 40, 1, dataseq); //send some data
-
-            if(instance_mode == ANCHOR)
-            {
-            	sprintf((char*)&dataseq1[0], "A%d  A%dT%d: %3.2f m", ancaddr, aaddr, taddr, range_result);
-            }
-            else if(instance_mode == TAG)
-            {
-                sprintf((char*)&dataseq1[0], "T%d  A%dT%d: %3.2f m", tagaddr, aaddr, taddr, range_result);
-            }
-            else
-            {
-            	sprintf((char*)&dataseq1[0], "LS  A%dT%d: %3.2f m", aaddr, taddr, range_result);
-            }
-            writetoLCD( 16, 1, dataseq1); //send some data
-            //led_off(LED_PC9);
-#endif
-#ifdef USB_SUPPORT //this is set in the port.h file
-            //led_on(LED_PC9);
-            l = instancegetlcount() & 0xFFFF;
-            r = instancegetrnum();
-            txa =  instancetxantdly();
-            rxa =  instancerxantdly();
-            rres = ((int)(range_result*1000));
-            rres_raw = ((int)(range_raw*1000));
-            // anchorID tagID range rangeraw countofranges rangenum rangetime txantdly rxantdly address
-            if(instance_mode == TAG)
-            {
-            	if((tagusbqidx + 60) < (LCD_BUFF_LEN*4)) //assume we need 60 length at most (this is the report length below)
-            	{
-
-            		n = sprintf((char*)&usbVCOMout[tagusbqidx], "ma%02x t%02x %08x %08x %04x %02x %08x %04x %04x t%d\r\n", aaddr, taddr, rres, rres_raw, l, r, rangeTime, txa, rxa, tagaddr);
-            		//n = sprintf((char*)&usbVCOMout[tagusbqidx], "ma%02x t%02x %08x %08x %08x %08x %04x %04x t%d\r\n", aaddr, taddr, rres, instance_data[0].systime, instance_data[0].delayedReplyTime, rangeTime, instance_data[0].lateTX, rxa, tagaddr);
-
-            		tagusbqidx+=n;
-            	}
-            }
-            else if (instance_mode == ANCHOR)
-            {
-            	n = sprintf((char*)&usbVCOMout[0], "ma%02x t%02x %08x %08x %04x %02x %08x %04x %04x a%d", aaddr, taddr, rres, rres_raw, l, r, rangeTime, txa, rxa, ancaddr);
-                send_usbmessage(&usbVCOMout[0], n);
-            }
-            else
-            {
-            	n = sprintf((char*)&usbVCOMout[tagusbqidx], "ma%02x t%02x %08x %08x %04x %02x %08x %04x %04x l%d\r\n", aaddr, taddr, rres, rres_raw, l, r, rangeTime, txa, rxa, ancaddr);
-        		tagusbqidx+=n;
-            }
-            //led_off(LED_PC9);
-#endif
+            sprintf(buf, "%x %x %f\r\n", aaddr, taddr, range_result);
+            UartSend(buf);
         }
 
-#ifdef USB_SUPPORT //this is set in the port.h file
-        if((tagusbqidx != 0)) //only TX over USB when Tag sleeping
-        {
-        	send_usbmessage(&usbVCOMout[0], tagusbqidx - 2); //so we don't add another new line
-        	tagusbqidx = 0;
-        }
-
-        //led_on(LED_PC7);
-        usb_run();
-        //led_off(LED_PC7);
-#endif
     }
 
 
