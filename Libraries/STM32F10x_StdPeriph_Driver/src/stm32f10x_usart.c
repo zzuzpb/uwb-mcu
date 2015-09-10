@@ -178,7 +178,6 @@ void USART_Init(USART_TypeDef* USARTx, USART_InitTypeDef* USART_InitStruct)
   uint32_t tmpreg = 0x00, apbclock = 0x00;
   uint32_t integerdivider = 0x00;
   uint32_t fractionaldivider = 0x00;
-  uint32_t usartxbase = 0;
   RCC_ClocksTypeDef RCC_ClocksStatus;
   /* Check the parameters */
   assert_param(IS_USART_ALL_PERIPH(USARTx));
@@ -193,8 +192,6 @@ void USART_Init(USART_TypeDef* USARTx, USART_InitTypeDef* USART_InitStruct)
   {
     assert_param(IS_USART_123_PERIPH(USARTx));
   }
-
-  usartxbase = (uint32_t)USARTx;
 
 /*---------------------------- USART CR2 Configuration -----------------------*/
   tmpreg = USARTx->CR2;

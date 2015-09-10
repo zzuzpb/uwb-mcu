@@ -27,17 +27,9 @@
 #define lcd_init(x)					No_Configuration(x)
 #define touch_screen_init(x)		No_Configuration(x)
 
-/* System tick 32 bit variable defined by the platform */
-extern __IO unsigned long time32_incr;
-
 int No_Configuration(void)
 {
 	return -1;
-}
-
-unsigned long portGetTickCnt(void)
-{
-	return time32_incr;
 }
 
 int SysTick_Configuration(void)
@@ -396,78 +388,6 @@ int SPI_Configuration(void)
     return 0;
 }
 
-
-int SPI2_Configuration(void)
-{
-	SPI_InitTypeDef SPI_InitStructure;
-	GPIO_InitTypeDef GPIO_InitStructure;
-
-	SPI_I2S_DeInit(SPIy);
-
-	// SPIy Mode setup
-	//SPI_InitStructure.SPI_Direction = SPI_Direction_1Line_Tx;
-	SPI_InitStructure.SPI_Direction = SPI_Direction_2Lines_FullDuplex;
-	SPI_InitStructure.SPI_Mode = SPI_Mode_Master;
-	SPI_InitStructure.SPI_DataSize = SPI_DataSize_8b;
-	//SPI_InitStructure.SPI_CPOL = SPI_CPOL_Low;	 //
-	SPI_InitStructure.SPI_CPOL = SPI_CPOL_High; //
-	//SPI_InitStructure.SPI_CPHA = SPI_CPHA_1Edge;
-	SPI_InitStructure.SPI_CPHA = SPI_CPHA_2Edge; //
-	//SPI_InitStructure.SPI_NSS = SPI_NSS_Hard;
-	SPI_InitStructure.SPI_NSS = SPI_NSS_Soft;
-	SPI_InitStructure.SPI_BaudRatePrescaler = SPIy_PRESCALER;
-	SPI_InitStructure.SPI_FirstBit = SPI_FirstBit_MSB;
-	SPI_InitStructure.SPI_CRCPolynomial = 7;
-
-	SPI_Init(SPIy, &SPI_InitStructure);
-
-	// SPIy SCK and MOSI pin setup
-	GPIO_InitStructure.GPIO_Pin = SPIy_SCK | SPIy_MOSI;
-	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_PP;
-	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-
-	GPIO_Init(SPIy_GPIO, &GPIO_InitStructure);
-
-	// SPIy MISO pin setup
-	GPIO_InitStructure.GPIO_Pin = SPIy_MISO;
-	//GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN_FLOATING;
-	GPIO_InitStructure.GPIO_Mode  = GPIO_Mode_IPU;
-
-	GPIO_Init(SPIy_GPIO, &GPIO_InitStructure);
-
-	// SPIy CS pin setup
-	GPIO_InitStructure.GPIO_Pin = SPIy_CS;
-	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
-	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-
-	GPIO_Init(SPIy_CS_GPIO, &GPIO_InitStructure);
-
-	// Disable SPIy SS Output
-	SPI_SSOutputCmd(SPIy, DISABLE);
-
-	// Enable SPIy
-	SPI_Cmd(SPIy, ENABLE);
-
-	// Set CS high
-	GPIO_SetBits(SPIy_CS_GPIO, SPIy_CS);
-
-	// LCD_RS pin setup
-	GPIO_InitStructure.GPIO_Pin = LCD_RS;
-	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
-	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-
-	GPIO_Init(SPIy_GPIO, &GPIO_InitStructure);
-
-	// LCD_RW pin setup
-	GPIO_InitStructure.GPIO_Pin = LCD_RW;
-	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
-	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-
-	GPIO_Init(SPIy_GPIO, &GPIO_InitStructure);
-
-    return 0;
-}
-
 int GPIO_Configuration(void)
 {
 	GPIO_InitTypeDef GPIO_InitStructure;
@@ -755,13 +675,6 @@ int peripherals_init (void)
 void spi_peripheral_init()
 {
 	spi_init();
-
-	//initialise SPI2 peripheral for LCD control
-	SPI2_Configuration();
-
-	port_LCD_RS_clear();
-
-	port_LCD_RW_clear();
 }
 
 void UartSend(const char *str)

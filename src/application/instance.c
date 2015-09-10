@@ -17,7 +17,7 @@
 #include "deca_regs.h"
 
 #include "instance.h"
-
+#include "scheduler.h"
 // -------------------------------------------------------------------------------------------------------------------
 
 
@@ -59,7 +59,7 @@ int destaddress(instance_data_t *inst)
  	inst->msg_f.destAddr[0] = inst->anchorListIndex & 0xff;
 	inst->msg_f.destAddr[1] = (ANCHOR_BASE_ADDR >> 8);
 	inst->anchorListIndex++ ;
-    if(inst->anchorListIndex > MAX_ANCHOR_LIST_SIZE) {
+    if(inst->anchorListIndex > MAX_ANCHOR) {
         inst->instToSleep = TRUE ; //we'll sleep after this poll
         inst->anchorListIndex = 0; //start from the first anchor in the list after sleep finishes
     }
@@ -117,13 +117,13 @@ int testapprun(instance_data_t *inst, int message)
 
     if(inst->mode == LISTENER && inst->listen_begin_time != 0) // listen enough?
     {
-    	uint32 current = portGetTickCount();
-        if (current - inst->listen_begin_time > 500) {
-        	inst->mode = TAG;
-        	inst->testAppState = TA_INIT;
-        	dwt_forcetrxoff();
-        	Sleep(2);
-        }
+    	//uint32 current = portGetTickCount();
+        //if (current - inst->listen_begin_time > 500) {
+        	//inst->mode = TAG;
+        	//inst->testAppState = TA_INIT;
+        	//dwt_forcetrxoff();
+        	//Sleep(2);
+        //}
     }
 
 
@@ -202,7 +202,7 @@ int testapprun(instance_data_t *inst, int message)
                     dwt_setrxtimeout(0);
                     //change to next state - wait to receive a message
                     inst->testAppState = TA_RXE_WAIT ;
-                    inst->listen_begin_time = portGetTickCount();
+                    //inst->listen_begin_time = portGetTickCount();
                 }
                 break ; // end case TA_INIT
                 default:
@@ -276,8 +276,6 @@ int testapprun(instance_data_t *inst, int message)
 				dwt_writetxfctrl(inst->psduLength, 0);
 
 				dwt_starttx(DWT_START_TX_IMMEDIATE | inst->wait4ack);
-
-				inst->newrangepolltime = portGetTickCount();
 
                 inst->testAppState = TA_TX_WAIT_CONF ;                                               // wait confirmation
                 inst->previousState = TA_TXPOLL_WAIT_SEND ;
@@ -550,15 +548,13 @@ int testapprun(instance_data_t *inst, int message)
                     {
 						//non - discovery mode - association is not used, process all messages
 						fcode = fn_code;
+                    	RangeProcessingDetected(dstAddr[0], srcAddr[0], fcode);
 
                         switch(fcode)
                         {
 
                             case RTLS_DEMO_MSG_TAG_POLL:
                             {
-                            	int currentSlotTime = 0;
-                            	int expectedSlotTime = 0;
-
 								if((inst->mode == LISTENER) //don't process any ranging messages when in Listener mode
 										|| ((dstAddr[0] != inst->eui64[0]) || (dstAddr[1] != inst->eui64[1]))) //if not addressed to us
 								{
@@ -566,7 +562,6 @@ int testapprun(instance_data_t *inst, int message)
 									break;
 								}
 
-								inst->newrangepolltime = dw_event->uTimeStamp;
                                 inst->rangeNum = messageData[POLL_RNUM];
 
 								inst->tagPollRxTime = dw_event->timeStamp ; //Poll's Rx time
@@ -626,10 +621,6 @@ int testapprun(instance_data_t *inst, int message)
 									inst->lastReportSN = dw_event->msgu.frame[2];
 									inst->newrangeancaddress = srcAddr[0] + ((uint16) srcAddr[1] << 8);
 									inst->newrangetagaddress = dstAddr[0]  + ((uint16) dstAddr[1]  << 8);
-									//inst->lastReportTime = time_ms;
-									inst->rangeNum = messageData[TOFRN];
-									inst->newrangetime = dw_event->uTimeStamp & 0xffff;
-
                                 }
 
 								//printf("ToFRx Timestamp: %4.15e\n", convertdevicetimetosecu(dw_event.timeStamp));
@@ -694,7 +685,6 @@ int testapprun(instance_data_t *inst, int message)
 
                                 inst->newrangetagaddress = srcAddr[0] + ((uint16) srcAddr[1] << 8);
                                 inst->newrangeancaddress = inst->eui64[0] + ((uint16) inst->eui64[1] << 8);
-                                inst->newrangetime = dw_event->uTimeStamp & 0xffff;
 
 								inst->testAppState = TA_TXREPORT_WAIT_SEND ; // send the report with the calculated time of flight
 

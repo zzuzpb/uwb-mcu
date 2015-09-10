@@ -79,9 +79,6 @@ extern "C" {
 #define MAX_USER_PAYLOAD_STRING	MAX_USER_PAYLOAD_STRING_LL
 
 
-#define MAX_ANCHOR_LIST_SIZE			(8) //this is limited to 4 in this application
-#define MAX_TAG_LIST_SIZE				(4)	//this is limited to 8 in this application
-
 #define ANCHOR_BASE_ADDR				(0x8000)
 
 // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -241,8 +238,6 @@ typedef struct
 	uint32 timeStamp32l ;		   // last tx/rx timestamp - low 32 bits
 	uint32 timeStamp32h ;		   // last tx/rx timestamp - high 32 bits
 
-	uint32 uTimeStamp ;			  //32 bit system counter (ms)
-
 	union {
 			//holds received frame (after a good RX frame event)
 			uint8   frame[STANDARD_FRAME_SIZE];
@@ -373,7 +368,6 @@ typedef struct
     int newrangetagaddress; //last 4 bytes of tag address
 
     int newrangetime;
-    uint32 newrangepolltime;
 
     uint8 anchorListIndex ;
 

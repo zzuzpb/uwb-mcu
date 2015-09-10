@@ -14,6 +14,7 @@
 #include "compiler.h"
 #include "port.h"
 
+#include "scheduler.h"
 #include "instance.h"
 
 #include "deca_types.h"
@@ -189,12 +190,13 @@ static struct part_configuration_t {
 	uint32 mode;
 	uint32 no;
 } part_configuration_tab[] = {
-	{ 0x1AA7U, ANCHOR  , 7 },
-	{ 0x2415U, LISTENER, 1 },
-	{ 0x0b5fU, LISTENER, 2 },
-	{ 0x0242U, ANCHOR  , 6 },
+	{ 0x1AA7U, ANCHOR  , 0 },
+	{ 0x2415U, ANCHOR  , 1 },
+	{ 0x0b5fU, ANCHOR  , 2 },
+	{ 0x0242U, ANCHOR  , 3 },
 	{ 0x101eU, LISTENER, 0 },
-	{ 0x1024U, LISTENER, 3 },
+	{ 0x1024U, LISTENER, 1 },
+	{ 0x104aU, LISTENER, 2 },
 };
 static void setup_modem_paramters_according_part_no(void)
 {
@@ -218,10 +220,6 @@ static void setup_modem_paramters_according_part_no(void)
 #pragma GCC optimize ("O3")
 int main(void)
 {
-    int i = 0;
-    //int toggle = 1;
-    double range_result = 0, range_raw = 0;
-
     led_off(LED_ALL); //turn off all the LEDs
 
     peripherals_init();
@@ -246,22 +244,21 @@ int main(void)
 
     port_EnableEXT_IRQ(); //enable ScenSor IRQ before starting
 
+    SchedulerInit(tagaddr);
+
     // main loop
     while(1)
     {
         instance_run();
 
-        //if there is a new ranging report received or a new range has been calculated, then prepare data
-        //to output over USB - Virtual COM port, and update the LCD
         if(instancenewrange())
         {
+#if 0
         	int n = 0, l = 0, r= 0, aaddr, taddr;
         	int rangeTime, correction;
         	int rres, rres_raw;
-            uint16 txa, rxa;
             char buf[100];
 
-            //send the new range information to LCD and/or USB
             range_result = instancegetidist();
             range_raw = instancegetidistraw();
             aaddr = instancenewrangeancadd() & 0xf;
@@ -269,8 +266,8 @@ int main(void)
             rangeTime = instancenewrangetim() & 0xffffffff;
             sprintf(buf, "%x %x %f\r\n", aaddr, taddr, range_result);
             UartSend(buf);
+#endif
         }
-
     }
 
 

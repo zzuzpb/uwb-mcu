@@ -584,8 +584,6 @@ void instance_rxcallback(const dwt_callback_data_t *rxd)
 			{
 				rxd_event = DWT_SIG_RX_ERROR ;
 			}
-			dw_event.uTimeStamp = portGetTickCount();
-
 		}
 
 		dw_event.type2 = dw_event.type = rxd_event;
@@ -747,7 +745,6 @@ void instance_putevent(event_data_t newevent)
 	uint8 etype = newevent.type;
 
 	newevent.type = 0;
-	//newevent.eventtime = portGetTickCount();
 	newevent.gotit = 0 ; //newevent.eventtimeclr = 0;
 
 	//copy event
@@ -792,10 +789,6 @@ event_data_t* instance_getevent(int x)
 	dw_event_g.timeStamp = instance_data[instance].dwevent[indexOut].timeStamp ;
 	dw_event_g.timeStamp32l = instance_data[instance].dwevent[indexOut].timeStamp32l ;
 	dw_event_g.timeStamp32h = instance_data[instance].dwevent[indexOut].timeStamp32h ;
-	dw_event_g.uTimeStamp = instance_data[instance].dwevent[indexOut].uTimeStamp ;
-	//dw_event_g.eventtime = instance_data[instance].dwevent[indexOut].eventtime ;
-	//dw_event_g.eventtimeclr = instance_data[instance].dwevent[indexOut].eventtimeclr ;
-	//dw_event_g.gotit = instance_data[instance].dwevent[indexOut].gotit ;
 
 	memcpy(&dw_event_g.msgu, &instance_data[instance].dwevent[indexOut].msgu, sizeof(instance_data[instance].dwevent[indexOut].msgu));
 
@@ -803,8 +796,6 @@ event_data_t* instance_getevent(int x)
 
 
 	instance_data[instance].dwevent[indexOut].gotit = x;
-
-	//instance_data[instance].dwevent[indexOut].eventtimeclr = portGetTickCount();
 
 	instance_data[instance].dwevent[indexOut].type = 0; //clear the event
 

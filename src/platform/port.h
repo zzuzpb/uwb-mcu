@@ -23,14 +23,6 @@ extern "C" {
 #include "stm32f10x.h"
 
 /*****************************************************************************************************************//*
- * To enable LDC update (i.e. printing/ouputing range result to LCD set this to 1
- * NOTE: it takes 3.1 ms to output/write to LCD so this is limiting when performing fast ranging
- * (e.g. 6.8 with short slot times - wake up could be 2.25 ms, ranging exchange 1.65 ms and the LCD update 3.1 ms)
- */
-#define LCD_UPDATE_ON (0)
-
-
-/*****************************************************************************************************************//*
  * To enable Direct Memory Access for SPI set this option to (1)
  * This option will increase speed of spi transactions but it will use an extra RAM memory buffer
  */
@@ -78,9 +70,6 @@ typedef enum
 #define SPIy_SCK					GPIO_Pin_13
 #define SPIy_MISO					GPIO_Pin_14
 #define SPIy_MOSI					GPIO_Pin_15
-
-#define LCD_RW						GPIO_Pin_10
-#define LCD_RS						GPIO_Pin_11
 
 #define SPIx_PRESCALER				SPI_BaudRatePrescaler_8
 
@@ -138,10 +127,6 @@ typedef enum
 #define port_SPIy_enable()              SPI_Cmd(SPIy,ENABLE)
 #define port_SPIy_set_chip_select()		GPIO_SetBits(SPIy_CS_GPIO,SPIy_CS)
 #define port_SPIy_clear_chip_select()	GPIO_ResetBits(SPIy_CS_GPIO,SPIy_CS)
-#define port_LCD_RS_set()				GPIO_SetBits(SPIy_GPIO,LCD_RS)
-#define port_LCD_RS_clear()				GPIO_ResetBits(SPIy_GPIO,LCD_RS)
-#define port_LCD_RW_set()				GPIO_SetBits(SPIy_GPIO,LCD_RW)
-#define port_LCD_RW_clear()				GPIO_ResetBits(SPIy_GPIO,LCD_RW)
 
 #define port_GET_stack_pointer()		__get_MSP()
 #define port_GET_rtc_time()				RTC_GetCounter()
@@ -161,11 +146,6 @@ int NVIC_DisableDECAIRQ(void);
 
 void __weak process_dwRSTn_irq(void);
 void __weak process_deca_irq(void);
-//define LCD functions
-#define port_LCD_Clear(x) 											0
-#define port_LCD_SetBackColor(x) 									0
-#define port_LCD_SetTextColor(x) 									0
-#define port_LCD_DisplayString(line, column, font_index, buffer) 	0
 void __weak button_callback(void);
 
 int is_IRQ_enabled(void);
@@ -187,13 +167,10 @@ void spi_peripheral_init(void);
 void SPI_ChangeRate(uint16_t scalingfactor);
 void SPI_ConfigFastRate(uint16_t scalingfactor);
 
-unsigned long portGetTickCnt(void);
-
-#define portGetTickCount() 			portGetTickCnt()
-
 void reset_DW1000(void);
 void setup_DW1000RSTnIRQ(int enable);
 
+#define UartPrint(args...) { char buf[1024]; sprintf(buf, args); UartSend(buf); }
 void UartSend(const char *str);
 
 #ifdef __cplusplus
