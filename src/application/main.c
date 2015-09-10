@@ -27,8 +27,6 @@ int instance_anchaddr = 0;
 #define ancaddr (instance_anchaddr)
 
 int instance_mode = ANCHOR;
-//int instance_mode = TAG;
-//int instance_mode = LISTENER;
 
 typedef struct
 {
@@ -244,7 +242,7 @@ int main(void)
 
     port_EnableEXT_IRQ(); //enable ScenSor IRQ before starting
 
-    SchedulerInit(tagaddr);
+    SchedulerInit(instance_mode, tagaddr);
 
     // main loop
     while(1)

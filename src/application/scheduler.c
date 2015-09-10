@@ -57,6 +57,8 @@ static inline void HRTimeNAdd(hrtime_t *t, unsigned n, const hrtime_t *deta)
 	HRTimeAdd(t, &dt);
 }
 
+static enum instanceModes instance_mode;
+
 static hrtime_t range_start_time = { -1, -1}; // the most important value
 static hrtime_t const range_period = RANGE_PERIOD;
 int MyRangeTurnShouldStart(void)
@@ -66,12 +68,13 @@ int MyRangeTurnShouldStart(void)
 }
 
 static unsigned my_tag_no = 0xFFFFFFFFU;
-void SchedulerInit(unsigned _my_tag_no)
+void SchedulerInit(enum instanceModes _instance_mode, unsigned _my_tag_no)
 {
 	if(SYS_TICK_COUNT != SysTick->LOAD + 1) {
 		UartSend("Unmatched SYS CLOCK\r\n");
 		while(1);
 	}
+	instance_mode = _instance_mode;
 	my_tag_no = _my_tag_no;
 	HRTimeGetCurrent(&range_start_time);
 	HRTimeNAdd(&range_start_time, 2*MAX_ANCHOR*MAX_TAG, &range_period);
@@ -80,11 +83,11 @@ void SchedulerInit(unsigned _my_tag_no)
 void RangeProcessingDetected(unsigned tag_no, unsigned anchor_no, unsigned flag)
 {
 
-	if (tag_no == my_tag_no) {
+	if (instance_mode == ANCHOR || instance_mode == TAG && tag_no == my_tag_no) {
 		return;
 	}
-	return;
-#if 0
+	//return;
+#if 1
 	// following collect data arrived time for statistical analysis
 	static struct {
 		unsigned int code;
@@ -100,7 +103,6 @@ void RangeProcessingDetected(unsigned tag_no, unsigned anchor_no, unsigned flag)
 			UartPrint("%02X %1X %1X %08d %08d\r\n", code_list[i].code, code_list[i].tag, code_list[i].anchor, code_list[i].time.ms, code_list[i].time.tick);
 		}
 		code_index = 0;
-		while(1);
 	}
 
 	code_list[code_index].code   = flag;
