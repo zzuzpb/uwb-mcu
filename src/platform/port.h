@@ -170,8 +170,9 @@ void SPI_ConfigFastRate(uint16_t scalingfactor);
 void reset_DW1000(void);
 void setup_DW1000RSTnIRQ(int enable);
 
-#define UartPrint(args...) { char buf[1024]; sprintf(buf, args); UartSend(buf); }
-void UartSend(const char *str);
+#define UartPrint(args...) { char buf[1024]; unsigned len = sprintf(buf, args); UartSend(buf, len); }
+void UartTouch(void);
+void UartSend(const char *str, const unsigned len);
 
 #ifdef __cplusplus
 }

@@ -221,7 +221,7 @@ int main(void)
     led_off(LED_ALL); //turn off all the LEDs
 
     peripherals_init();
-    UartSend("Hello RTLS System(v0.9a) by X-Lab, Huaqin\r\n");
+    UartSend("Hello RTLS System(v0.9a) by X-Lab, Huaqin\r\n", 0);
 
     spi_peripheral_init();
 

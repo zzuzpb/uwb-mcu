@@ -21,6 +21,7 @@ static void inline HRTimeGetCurrent(hrtime_t *t)
 		t->tick = SYS_TICK_COUNT - SysTick->VAL;
 		ms      = time32_incr;
 	} while (t->ms != ms);
+	UartTouch();
 }
 
 #pragma GCC optimize ("O3")
@@ -71,7 +72,7 @@ static unsigned my_tag_no = 0xFFFFFFFFU;
 void SchedulerInit(enum instanceModes _instance_mode, unsigned _my_tag_no)
 {
 	if(SYS_TICK_COUNT != SysTick->LOAD + 1) {
-		UartSend("Unmatched SYS CLOCK\r\n");
+		UartSend("Unmatched SYS CLOCK\r\n", 0);
 		while(1);
 	}
 	instance_mode = _instance_mode;
@@ -83,35 +84,9 @@ void SchedulerInit(enum instanceModes _instance_mode, unsigned _my_tag_no)
 void RangeProcessingDetected(unsigned tag_no, unsigned anchor_no, unsigned flag)
 {
 
-	if (instance_mode == ANCHOR || instance_mode == TAG && tag_no == my_tag_no) {
-		return;
-	}
-	//return;
-#if 1
-	// following collect data arrived time for statistical analysis
-	static struct {
-		unsigned int code;
-		unsigned int tag;
-		unsigned int anchor;
-		hrtime_t time;
-	} code_list[1000];
-	static int code_index = 0;
-
-	if (code_index >= sizeof code_list / sizeof (code_list[0])) {
-		int i;
-		for (i = 0; i < code_index; i++) {
-			UartPrint("%02X %1X %1X %08d %08d\r\n", code_list[i].code, code_list[i].tag, code_list[i].anchor, code_list[i].time.ms, code_list[i].time.tick);
-		}
-		code_index = 0;
-	}
-
-	code_list[code_index].code   = flag;
-	code_list[code_index].anchor = anchor_no;
-	code_list[code_index].tag    = tag_no;
-
-	HRTimeGetCurrent(&code_list[code_index].time);
-	code_index ++;
-#endif
+	hrtime_t curr;
+	HRTimeGetCurrent(&curr);
+	UartPrint("%02X %1X %1X %08d %08d\r\n", flag, tag_no, anchor_no, curr.ms, curr.tick);
 }
 void MyRangeProcessingRoundFinished(void)
 {

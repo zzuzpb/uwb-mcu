@@ -115,6 +115,8 @@ int testapprun(instance_data_t *inst, int message)
 	extern int instance_mode;
 	instance_mode = inst->mode;
 
+	UartTouch();
+
     if(inst->mode == LISTENER && inst->listen_begin_time != 0) // listen enough?
     {
     	//uint32 current = portGetTickCount();

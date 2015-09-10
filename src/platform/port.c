@@ -677,15 +677,38 @@ void spi_peripheral_init()
 	spi_init();
 }
 
-void UartSend(const char *str)
+#define UART_BUF_SIZE 500
+static char uart_buf[UART_BUF_SIZE+1];
+static unsigned begin_pos, end_pos;
+void UartTouch(void)
 {
-	const char *p = str;
-	for(;;) {
-		char c = *p++;
-		if (c == '\0') {
-			break;
+	while (begin_pos < end_pos) {
+		char c;
+		if (port_USARTx_busy_sending()) {
+			return;
 		}
-		while (port_USARTx_busy_sending());
+		c = uart_buf[begin_pos++];
 		port_USARTx_send_data(c);
 	}
+}
+
+void UartSend(const char *str, const unsigned len)
+{
+	unsigned length = len ? len : strlen(str);
+	if (begin_pos >= end_pos && begin_pos != 0) {
+		begin_pos = end_pos = 0;
+	}
+	if (length > UART_BUF_SIZE) {
+		while(1); // too big size, halt
+	}
+	if (end_pos + length <= UART_BUF_SIZE) {
+	} else if (end_pos - begin_pos + length <= UART_BUF_SIZE) {
+		strcpy(uart_buf, uart_buf + begin_pos);
+		begin_pos = 0;
+		end_pos -= begin_pos;
+	} else {
+		begin_pos = end_pos = 0; // no more space, clean the rest.
+	}
+	strcpy(uart_buf + end_pos, str);
+	end_pos += length;
 }
