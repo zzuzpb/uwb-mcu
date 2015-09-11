@@ -59,7 +59,7 @@ int destaddress(instance_data_t *inst)
  	inst->msg_f.destAddr[0] = inst->anchorListIndex & 0xff;
 	inst->msg_f.destAddr[1] = (ANCHOR_BASE_ADDR >> 8);
 	inst->anchorListIndex++ ;
-    if(inst->anchorListIndex > MAX_ANCHOR) {
+    if(inst->anchorListIndex >= MAX_ANCHOR) {
         inst->instToSleep = TRUE ; //we'll sleep after this poll
         inst->anchorListIndex = 0; //start from the first anchor in the list after sleep finishes
     }
@@ -112,18 +112,13 @@ int instancesendpacket(instance_data_t *inst, int delayedTx)
 //
 int testapprun(instance_data_t *inst, int message)
 {
-	extern int instance_mode;
-	instance_mode = inst->mode;
-
-    if(inst->mode == LISTENER && inst->listen_begin_time != 0) // listen enough?
+    if(inst->mode == LISTENER) // listen enough?
     {
-    	//uint32 current = portGetTickCount();
-        //if (current - inst->listen_begin_time > 500) {
-        	//inst->mode = TAG;
-        	//inst->testAppState = TA_INIT;
-        	//dwt_forcetrxoff();
-        	//Sleep(2);
-        //}
+        if (MyRangeTurnShouldStart()) {
+        	inst->mode = TAG;
+        	inst->testAppState = TA_INIT;
+        	dwt_forcetrxoff();
+        }
     }
 
 
@@ -210,29 +205,6 @@ int testapprun(instance_data_t *inst, int message)
             }
             break; // end case TA_INIT
 
-        case TA_SLEEP_DONE :
-        {
-        	event_data_t* dw_event = instance_getevent(10); //clear the event from the queue
-			// waiting for timout from application to wakup IC
-			if (dw_event->type != DWT_SIG_RX_TIMEOUT)
-			{
-				// if no pause and no wake-up timeout continu waiting for the sleep to be done.
-                inst->done = INST_DONE_WAIT_FOR_NEXT_EVENT; //wait here for sleep timeout
-                break;
-            }
-
-            inst->done = INST_NOT_DONE_YET;
-            inst->instToSleep = FALSE ;
-            inst->testAppState = inst->nextState;
-            inst->nextState = 0; //clear
-            Sleep(3); //to approximate match the time spent in the #if above
-
-            instancesetantennadelays(); //this will update the antenna delay if it has changed
-            instancesettxpower(); //configure TX power if it has changed
-
-       }
-            break;
-
         case TA_TXE_WAIT : //either go to sleep or proceed to TX a message
             // printf("TA_TXE_WAIT") ;
             //if we are scheduled to go to sleep before next transmission then sleep first.
@@ -240,10 +212,10 @@ int testapprun(instance_data_t *inst, int message)
                     && (inst->instToSleep)  //go to sleep before sending the next poll/ starting new ranging exchange
                     )
             {
+            	MyRangeProcessingRoundFinished();
             	inst->mode = LISTENER;
             	inst->testAppState = TA_INIT;
             	inst->done = INST_NOT_DONE_YET;
-            	inst->listen_begin_time = 0;
             	break;
             }
             else //proceed to configuration and transmission of a frame
@@ -259,6 +231,8 @@ int testapprun(instance_data_t *inst, int message)
             	// NOTE: For DecaRangeRTLS TREK application, we want to poll in turn anchors 0, 1, 2, and 3.
             	//       The selection of which anchor to poll next is done here !!!!
 				destaddress(inst); // Set Anchor Address to poll next
+				while (!MyRangeToAnchorShouldStart(inst->msg_f.destAddr[0])){
+				}
 
 
                 inst->msg_f.messageData[POLL_RNUM] = inst->rangeNum;
@@ -548,7 +522,6 @@ int testapprun(instance_data_t *inst, int message)
                     {
 						//non - discovery mode - association is not used, process all messages
 						fcode = fn_code;
-                    	RangeProcessingDetected(dstAddr[0], srcAddr[0], fcode);
 
                         switch(fcode)
                         {
@@ -610,6 +583,7 @@ int testapprun(instance_data_t *inst, int message)
                                     //break;
                                 }
 
+                                RangeProcessingDetected(dstAddr[0], srcAddr[0], fcode, inst->mode);
 								memcpy(&inst->tof, &(messageData[TOFR]), 5);
 
 								if(((inst->mode == TAG) && (dw_event->msgu.frame[2] != inst->lastReportSN)) //compare sequence numbers

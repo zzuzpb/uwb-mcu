@@ -128,8 +128,6 @@ typedef enum inst_states
     TA_RXE_WAIT,                //7
     TA_RX_WAIT_DATA,            //8
 
-    TA_SLEEP_DONE               //9
-
 } INST_STATES;
 
 
@@ -377,8 +375,6 @@ typedef struct
     uint8 dweventIdxOut;
     uint8 dweventIdxIn;
 	uint8 dweventPeek;
-
-	uint32 listen_begin_time;
 
 	int dwIDLE;
 

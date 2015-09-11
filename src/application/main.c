@@ -21,7 +21,6 @@
 
 #include "deca_spi.h"
 
-uint8 s1switch = 0;
 int instance_anchaddr = 0;
 #define tagaddr (instance_anchaddr)
 #define ancaddr (instance_anchaddr)
@@ -242,7 +241,7 @@ int main(void)
 
     port_EnableEXT_IRQ(); //enable ScenSor IRQ before starting
 
-    SchedulerInit(instance_mode, tagaddr);
+    SchedulerInit(tagaddr);
 
     // main loop
     while(1)

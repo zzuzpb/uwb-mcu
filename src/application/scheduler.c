@@ -57,8 +57,6 @@ static inline void HRTimeNAdd(hrtime_t *t, unsigned n, const hrtime_t *deta)
 	HRTimeAdd(t, &dt);
 }
 
-static enum instanceModes instance_mode;
-
 static hrtime_t range_start_time = { -1, -1}; // the most important value
 static hrtime_t const range_period = RANGE_PERIOD;
 int MyRangeTurnShouldStart(void)
@@ -67,27 +65,56 @@ int MyRangeTurnShouldStart(void)
 	return ret;
 }
 
-static unsigned my_tag_no = 0xFFFFFFFFU;
-void SchedulerInit(enum instanceModes _instance_mode, unsigned _my_tag_no)
+int MyRangeToAnchorShouldStart(unsigned anchor_no)
+{
+	int ret = 1;
+	if (anchor_no) {
+		hrtime_t t = range_start_time;
+		HRTimeNAdd(&t, anchor_no, &range_period);
+		ret = HRTimeBeyond(&t);
+	}
+	return ret;
+
+}
+
+static unsigned my_tag_no;
+void SchedulerInit(unsigned _my_tag_no)
 {
 	if(SYS_TICK_COUNT != SysTick->LOAD + 1) {
 		UartSend("Unmatched SYS CLOCK\r\n");
 		while(1);
 	}
-	instance_mode = _instance_mode;
 	my_tag_no = _my_tag_no;
 	HRTimeGetCurrent(&range_start_time);
 	HRTimeNAdd(&range_start_time, 2*MAX_ANCHOR*MAX_TAG, &range_period);
 }
 
-void RangeProcessingDetected(unsigned tag_no, unsigned anchor_no, unsigned flag)
+void RangeProcessingDetected(unsigned tag_no, unsigned anchor_no, unsigned flag, enum instanceModes mode)
 {
 
-	if (instance_mode == ANCHOR || instance_mode == TAG && tag_no == my_tag_no) {
+	if (mode != LISTENER) {
 		return;
 	}
+	if (flag == RTLS_DEMO_MSG_ANCH_TOFR) {
+		hrtime_t t;
+		unsigned diff_tag, diff_range;
+		HRTimeGetCurrent(&t);
+		if (tag_no == my_tag_no || tag_no >= MAX_TAG || anchor_no >= MAX_ANCHOR) {
+			// WTF
+			return;
+		}
+		if (my_tag_no > tag_no) {
+			diff_tag = my_tag_no - tag_no;
+		} else {
+			diff_tag = my_tag_no + MAX_TAG - tag_no;
+		}
+		diff_range = diff_tag * MAX_ANCHOR - (anchor_no + 1);
+		HRTimeNAdd(&t, diff_range, &range_period);
+		range_start_time = t;
+		// a range finished, which between tag_no and anchor_no
+	}
 	//return;
-#if 1
+#if 0
 	// following collect data arrived time for statistical analysis
 	static struct {
 		unsigned int code;
@@ -115,7 +142,7 @@ void RangeProcessingDetected(unsigned tag_no, unsigned anchor_no, unsigned flag)
 }
 void MyRangeProcessingRoundFinished(void)
 {
-	HRTimeNAdd(&range_start_time, MAX_ANCHOR * MAX_TAG, &range_period);
+	HRTimeNAdd(&range_start_time, MAX_ANCHOR* MAX_TAG, &range_period);
 }
 
 int __weak usleep(useconds_t useconds)
