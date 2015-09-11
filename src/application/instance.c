@@ -112,7 +112,7 @@ int instancesendpacket(instance_data_t *inst, int delayedTx)
 //
 int testapprun(instance_data_t *inst, int message)
 {
-    if(inst->mode == LISTENER) // listen enough?
+    if(inst->mode == LISTENER && inst->payload.tagAddress < MAX_TAG) // listen enough?
     {
         if (MyRangeTurnShouldStart()) {
         	inst->mode = TAG;

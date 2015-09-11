@@ -193,7 +193,7 @@ static struct part_configuration_t {
 	{ 0x0242U, ANCHOR  , 3 },
 	{ 0x101eU, LISTENER, 0 },
 	{ 0x1024U, LISTENER, 1 },
-	{ 0x104aU, LISTENER, 2 },
+	{ 0x104aU, LISTENER, 7 },
 };
 static void setup_modem_paramters_according_part_no(void)
 {

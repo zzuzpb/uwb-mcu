@@ -91,6 +91,13 @@ void SchedulerInit(unsigned _my_tag_no)
 
 void RangeProcessingDetected(unsigned tag_no, unsigned anchor_no, unsigned flag, enum instanceModes mode)
 {
+	if (my_tag_no >= MAX_TAG) {
+		// a pure listener.
+		hrtime_t t;
+		HRTimeGetCurrent(&t);
+		UartPrint("%02X %1X %1X %08d %08d\r\n", flag, tag_no, anchor_no, t.ms, t.tick);
+		return;
+	}
 
 	if (mode != LISTENER) {
 		return;
@@ -113,32 +120,6 @@ void RangeProcessingDetected(unsigned tag_no, unsigned anchor_no, unsigned flag,
 		range_start_time = t;
 		// a range finished, which between tag_no and anchor_no
 	}
-	//return;
-#if 0
-	// following collect data arrived time for statistical analysis
-	static struct {
-		unsigned int code;
-		unsigned int tag;
-		unsigned int anchor;
-		hrtime_t time;
-	} code_list[1000];
-	static int code_index = 0;
-
-	if (code_index >= sizeof code_list / sizeof (code_list[0])) {
-		int i;
-		for (i = 0; i < code_index; i++) {
-			UartPrint("%02X %1X %1X %08d %08d\r\n", code_list[i].code, code_list[i].tag, code_list[i].anchor, code_list[i].time.ms, code_list[i].time.tick);
-		}
-		code_index = 0;
-	}
-
-	code_list[code_index].code   = flag;
-	code_list[code_index].anchor = anchor_no;
-	code_list[code_index].tag    = tag_no;
-
-	HRTimeGetCurrent(&code_list[code_index].time);
-	code_index ++;
-#endif
 }
 void MyRangeProcessingRoundFinished(void)
 {
