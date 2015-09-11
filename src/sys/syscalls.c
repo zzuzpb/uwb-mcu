@@ -110,22 +110,6 @@ void _exit(int status) {
  *
  */
 
-/* Return a clock that ticks at CLOCKS_PER_SEC Hz.  */
-clock_t _times_r(void *reent, struct tms * tp)
-{
-  clock_t timeval = portGetTickCount(); //time32_incr;
-
-  if (tp)
-    {
-      tp->tms_utime  = timeval;	/* user time */
-      tp->tms_stime  = 0;	/* system time */
-      tp->tms_cutime = 0;	/* user time, children */
-      tp->tms_cstime = 0;	/* system time, children */
-    }
-
-  return timeval;
-};
-
 int _read_r(int fd, char *ptr, size_t len)
 {
 	int i;

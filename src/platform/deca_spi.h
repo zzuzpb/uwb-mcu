@@ -21,7 +21,6 @@ extern "C" {
 #include "deca_types.h"
 
 #define DECA_MAX_SPI_HEADER_LENGTH      (3)                     // max number of bytes in header (for formating & sizing)
-#define EVB1000_LCD_SUPPORT				(1)
 /*! ------------------------------------------------------------------------------------------------------------------
  * Function: openspi()
  *
@@ -38,26 +37,6 @@ int openspi(void) ;
  */
 int closespi(void) ;
 
-
-
-
-#if (EVB1000_LCD_SUPPORT == 1)
-/*! ------------------------------------------------------------------------------------------------------------------
- * Function: writetoLCD()
- *
- * Low level abstract function to write data to the LCD display via SPI2 peripheral
- * Takes byte buffer and rs_enable signals
- * or returns -1 if there was an error
- */
-void writetoLCD
-(
-    uint32       bodylength,
-    uint8        rs_enable,
-    const uint8 *bodyBuffer
-);
-#else
-#define writetoLCD(x)
-#endif
 
 #ifdef __cplusplus
 }

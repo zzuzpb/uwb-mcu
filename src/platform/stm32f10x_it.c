@@ -87,6 +87,14 @@ void pop_registers_from_fault_stack(unsigned int * hardfault_args)
 	stacked_lr = ((unsigned long) hardfault_args[5]);
 	stacked_pc = ((unsigned long) hardfault_args[6]);
 	stacked_psr = ((unsigned long) hardfault_args[7]);
+	stacked_r0  = stacked_r0;
+	stacked_r1  = stacked_r1;
+	stacked_r2  = stacked_r2;
+	stacked_r3  = stacked_r3;
+	stacked_r12 = stacked_r12;
+	stacked_lr  = stacked_lr;
+	stacked_pc  = stacked_pc;
+	stacked_psr = stacked_psr;
 	/* Inspect stacked_pc to locate the offending instruction. */
 	for( ;; );
 }
