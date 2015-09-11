@@ -244,29 +244,9 @@ int main(void)
     SchedulerInit(tagaddr);
 
     // main loop
-    while(1)
-    {
+    while(1) {
         instance_run();
-
-        if(instancenewrange())
-        {
-#if 0
-        	int n = 0, l = 0, r= 0, aaddr, taddr;
-        	int rangeTime, correction;
-        	int rres, rres_raw;
-            char buf[100];
-
-            range_result = instancegetidist();
-            range_raw = instancegetidistraw();
-            aaddr = instancenewrangeancadd() & 0xf;
-            taddr = instancenewrangetagadd() & 0xf;
-            rangeTime = instancenewrangetim() & 0xffffffff;
-            sprintf(buf, "%x %x %f\r\n", aaddr, taddr, range_result);
-            UartSend(buf);
-#endif
-        }
     }
-
 
     return 0;
 }

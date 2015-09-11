@@ -362,8 +362,6 @@ int testapprun(instance_data_t *inst, int message)
 				//use anchor rx timeout to timeout and re-send the ToF report
 				inst->done = INST_NOT_DONE_YET;
 
-				inst->newrange = 1;
-
             }
             break;
 
@@ -371,11 +369,6 @@ int testapprun(instance_data_t *inst, int message)
         case TA_TX_WAIT_CONF :
 		   //printf("TA_TX_WAIT_CONF %d m%d %d states %08x %08x\n", inst->previousState, message, inst->newReportSent, dwt_read32bitreg(0x19), dwt_read32bitreg(0x0f)) ;
 
-        		{
-        			static unsigned int x;
-        			x = inst->anchorListIndex - 1;
-        			x += 0;
-        		}
                 {
 				event_data_t* dw_event = instance_getevent(11); //get and clear this event
 
@@ -578,33 +571,24 @@ int testapprun(instance_data_t *inst, int message)
                             {
                                 if(inst->mode == LISTENER) //don't process any ranging messages when in Listener mode
                                 {
-                                    //only enable receiver when not using double buffering
-                                    //inst->testAppState = TA_RXE_WAIT ;              // wait for next frame
-                                    //break;
+                                    inst->testAppState = TA_RXE_WAIT ;              // wait for next frame
+                                	RangeProcessingDetected(dstAddr[0], srcAddr[0], fcode, inst->mode);
+                                    break;
                                 }
 
-                                RangeProcessingDetected(dstAddr[0], srcAddr[0], fcode, inst->mode);
+
 								memcpy(&inst->tof, &(messageData[TOFR]), 5);
 
-								if(((inst->mode == TAG) && (dw_event->msgu.frame[2] != inst->lastReportSN)) //compare sequence numbers
-									|| (inst->mode != TAG))
-                                {
+								if(inst->mode == TAG){
                                     reportTOF(inst);
 
-                                    inst->newrange = 1;
 									inst->lastReportSN = dw_event->msgu.frame[2];
 									inst->newrangeancaddress = srcAddr[0] + ((uint16) srcAddr[1] << 8);
 									inst->newrangetagaddress = dstAddr[0]  + ((uint16) dstAddr[1]  << 8);
-                                }
-
-								//printf("ToFRx Timestamp: %4.15e\n", convertdevicetimetosecu(dw_event.timeStamp));
-								if(inst->mode == TAG)
-								{
+									ReportRangeResult(dstAddr[0], srcAddr[0], instancegetidist()*1000);
                                     inst->testAppState = TA_TXE_WAIT;
                                     inst->nextState = TA_TXPOLL_WAIT_SEND ; // send next poll
-								}
-								else
-								{
+                                } else {
 									inst->testAppState = TA_RXE_WAIT ;              // wait for next frame
 								}
                             }

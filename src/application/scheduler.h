@@ -17,4 +17,5 @@ int MyRangeToAnchorShouldStart(unsigned anchor_no);
 void RangeProcessingDetected(unsigned tag_no, unsigned anchor_no, unsigned flag, enum instanceModes mode);
 void MyRangeProcessingRoundFinished(void);
 
+void ReportRangeResult(unsigned tag_no, unsigned anchor_no, unsigned dist);
 #endif
