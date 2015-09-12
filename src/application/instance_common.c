@@ -410,7 +410,7 @@ void inst_processrxtimeout(instance_data_t *inst)
     inst->rxTimeouts ++ ;
     inst->done = INST_NOT_DONE_YET;
 
-    if(inst->mode == ANCHOR) //we did not receive the final - wait for next poll
+    if(inst->mode == ANCHOR || inst->mode == LISTENER) //we did not receive the final - wait for next poll
     {
 		//only enable receiver when not using double buffering
 		inst->testAppState = TA_RXE_WAIT ;              // wait for next frame

@@ -112,16 +112,6 @@ int instancesendpacket(instance_data_t *inst, int delayedTx)
 //
 int testapprun(instance_data_t *inst, int message)
 {
-    if(inst->mode == LISTENER && inst->payload.tagAddress < MAX_TAG) // listen enough?
-    {
-        if (MyRangeTurnShouldStart()) {
-        	inst->mode = TAG;
-        	inst->testAppState = TA_INIT;
-        	dwt_forcetrxoff();
-        }
-    }
-
-
     switch (inst->testAppState)
     {
         case TA_INIT :
@@ -686,8 +676,19 @@ int testapprun(instance_data_t *inst, int message)
                     message = 0; //clear the message as we have processed the event
                 break ;
 
-                case DWT_SIG_TX_AA_DONE: //ignore this event - just process the rx frame that was received before the ACK response
 				case 0:
+                    if(inst->mode == LISTENER && inst->payload.tagAddress < MAX_TAG) // listen enough?
+                    {
+                        if (MyRangeTurnShouldStart()) {
+                        	inst->mode = TAG;
+                        	inst->testAppState = TA_INIT;
+                        	inst->done = INST_NOT_DONE_YET;
+                        	dwt_forcetrxoff();
+                        	break;
+                        }
+                    }
+
+                case DWT_SIG_TX_AA_DONE: //ignore this event - just process the rx frame that was received before the ACK response
 				default :
                 {
                     if(inst->done == INST_NOT_DONE_YET) inst->done = INST_DONE_WAIT_FOR_NEXT_EVENT;
