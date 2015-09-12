@@ -152,6 +152,8 @@ int testapprun(instance_data_t *inst, int message)
 					if(inst->configData.txPreambLength == DWT_PLEN_64)  //if using 64 length preamble then use the corresponding OPSet
 						mode |= DWT_LOADOPSET;
 
+					MyRangeProcessingRoundStarted();
+
                 }
                 break;
                 case ANCHOR:
@@ -575,7 +577,7 @@ int testapprun(instance_data_t *inst, int message)
 									inst->lastReportSN = dw_event->msgu.frame[2];
 									inst->newrangeancaddress = srcAddr[0] + ((uint16) srcAddr[1] << 8);
 									inst->newrangetagaddress = dstAddr[0]  + ((uint16) dstAddr[1]  << 8);
-									ReportRangeResult(dstAddr[0], srcAddr[0], instancegetidist()*1000);
+									ReportRangeResult(inst->newrangetagaddress, inst->newrangeancaddress, instancegetidist()*1000);
                                     inst->testAppState = TA_TXE_WAIT;
                                     inst->nextState = TA_TXPOLL_WAIT_SEND ; // send next poll
                                 } else {

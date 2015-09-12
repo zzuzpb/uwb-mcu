@@ -2,6 +2,7 @@
 #include "sleep.h"
 
 #include "scheduler.h"
+#include "crc.h"
 
 typedef struct {
 	unsigned ms;   //
@@ -89,10 +90,6 @@ void SchedulerInit(unsigned _my_tag_no)
 	HRTimeNAdd(&range_start_time, 2*MAX_ANCHOR*MAX_TAG, &range_period);
 }
 
-void ReportRangeResult(unsigned tag_no, unsigned anchor_no, unsigned dist)
-{
-	UartPrint("%x %x %u\r\n", tag_no, anchor_no, dist);
-}
 void RangeProcessingDetected(unsigned tag_no, unsigned anchor_no, unsigned flag, enum instanceModes mode)
 {
 	if (my_tag_no >= MAX_TAG) {
@@ -125,8 +122,26 @@ void RangeProcessingDetected(unsigned tag_no, unsigned anchor_no, unsigned flag,
 		// a range finished, which between tag_no and anchor_no
 	}
 }
+
+static unsigned char crc;
+static unsigned report_no;
+void MyRangeProcessingRoundStarted(void)
+{
+	crc8_init(crc);
+}
+
+void ReportRangeResult(unsigned tag_no, unsigned anchor_no, unsigned dist)
+{
+	unsigned short anc = anchor_no;
+	CRC8_16(crc, anc);
+	CRC8_32(crc, dist);
+	UartPrint("%04X %08X;", anchor_no, dist);
+}
+
 void MyRangeProcessingRoundFinished(void)
 {
+	CRC8_32(crc, report_no);
+	UartPrint("%08X %02X\r\n", report_no++, crc);
 	HRTimeNAdd(&range_start_time, MAX_ANCHOR* MAX_TAG, &range_period);
 }
 
