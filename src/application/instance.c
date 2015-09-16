@@ -563,8 +563,12 @@ int testapprun(instance_data_t *inst, int message)
                             {
                                 if(inst->mode == LISTENER) //don't process any ranging messages when in Listener mode
                                 {
+                                    void LinstenerReportDistance(unsigned distance);
+                                    memcpy(&inst->tof, &(messageData[TOFR]), 5);
+                                    reportTOF(inst);
+                                    LinstenerReportDistance(instancegetidist()*1000);
+
                                     inst->testAppState = TA_RXE_WAIT ;              // wait for next frame
-                                	RangeProcessingDetected(dstAddr[0], srcAddr[0], fcode, inst->mode);
                                     break;
                                 }
 

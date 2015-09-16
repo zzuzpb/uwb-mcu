@@ -90,6 +90,16 @@ void SchedulerInit(unsigned _my_tag_no)
 	HRTimeNAdd(&range_start_time, 2*MAX_ANCHOR*MAX_TAG, &range_period);
 }
 
+void LinstenerReportDistance(unsigned distance)
+{
+	unsigned char crc;
+	crc8_init(crc);
+	CRC8_16(crc, 0);
+	CRC8_32(crc, distance);
+	CRC8_32(crc, 0);
+	UartPrint("0 %x;0 %x\r\n", distance, crc);
+}
+
 void RangeProcessingDetected(unsigned tag_no, unsigned anchor_no, unsigned flag, enum instanceModes mode)
 {
 	if (my_tag_no >= MAX_TAG) {
