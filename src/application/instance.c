@@ -81,6 +81,16 @@ void setupmacframedata(instance_data_t *inst, int len, int framectrllen, int fco
 }
 
 
+static int is_sent_to_me_as_anchor(const uint8 addr[], const instance_data_t * inst)
+{
+	const uint8 *me = inst->eui64;
+	unsigned a = addr[0] | (addr[1] << 8);
+	unsigned m = me[0]   | (me[1]   << 8);
+	int ret = a == (m & ~(0x7F00U));
+	return ret;
+}
+
+
 int instancesendpacket(instance_data_t *inst, int delayedTx)
 {
     int result = 0;
@@ -171,7 +181,7 @@ int testapprun(instance_data_t *inst, int message)
                     shortadd = (shortadd << 8) + inst->msg_f.sourceAddr[0];
                     dwt_setaddress16(shortadd);
 
-                    dwt_enableframefilter(DWT_FF_DATA_EN | DWT_FF_ACK_EN); //allow data, ack frames;
+                    dwt_enableframefilter(0); // (DWT_FF_DATA_EN | DWT_FF_ACK_EN); //allow data, ack frames;
 
                     // First time anchor listens we don't do a delayed RX
 					dwt_setrxaftertxdelay(0);
@@ -514,7 +524,7 @@ int testapprun(instance_data_t *inst, int message)
                             case RTLS_DEMO_MSG_TAG_POLL:
                             {
 								if((inst->mode == LISTENER) //don't process any ranging messages when in Listener mode
-										|| ((dstAddr[0] != inst->eui64[0]) || (dstAddr[1] != inst->eui64[1]))) //if not addressed to us
+										|| !is_sent_to_me_as_anchor(dstAddr, inst)) //if not addressed to us
 								{
 									inst->testAppState = TA_RXE_WAIT ;              // wait for next frame
 									break;
@@ -597,7 +607,7 @@ int testapprun(instance_data_t *inst, int message)
                                 uint64 respFinalRTD  = 0;
 
 								if((inst->mode == LISTENER) //don't process any ranging messages when in Listener mode
-										|| ((dstAddr[0] != inst->eui64[0]) || (dstAddr[1] != inst->eui64[1]))) //if not addressed to us
+										|| !is_sent_to_me_as_anchor(dstAddr, inst)) //if not addressed to us
 								{
                                     inst->testAppState = TA_RXE_WAIT ;              // wait for next frame
                                     break;

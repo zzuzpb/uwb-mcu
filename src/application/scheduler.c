@@ -116,7 +116,7 @@ void RangeProcessingDetected(unsigned tag_no, unsigned anchor_no, unsigned flag,
 		} else {
 			diff_tag = my_tag_no + MAX_TAG - tag_no;
 		}
-		diff_range = diff_tag * MAX_ANCHOR - (anchor_no + 1);
+		diff_range = diff_tag * MAX_ANCHOR - ( (anchor_no & 0xFFU) + 1); // (anchor_no & 0xFFU) means member ID
 		HRTimeNAdd(&t, diff_range, &range_period);
 		range_start_time = t;
 		// a range finished, which between tag_no and anchor_no

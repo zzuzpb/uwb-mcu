@@ -187,13 +187,15 @@ static struct part_configuration_t {
 	uint32 mode;
 	uint32 no;
 } part_configuration_tab[] = {
-	{ 0x1AA7U, ANCHOR  , 0 },
-	{ 0x2415U, ANCHOR  , 1 },
-	{ 0x0b5fU, ANCHOR  , 2 },
-	{ 0x0242U, ANCHOR  , 3 },
-	{ 0x101eU, LISTENER, 0 },
-	{ 0x1024U, LISTENER, 1 },
-	{ 0x104aU, LISTENER, 7 },
+	{ 0x1AA7U, LISTENER, 0x0002 }, // #1
+	{ 0x2415U, ANCHOR  , 0x0001 }, // #2
+	{ 0x0b5fU, ANCHOR  , 0x0002 }, // #3
+	{ 0x0242U, ANCHOR  , 0x0003 }, // #4
+	{ 0x101eU, LISTENER, 0x0001 }, // #5
+	{ 0x1024U, ANCHOR  , 0x7000 }, // #6
+	{ 0x104aU, ANCHOR  , 0x7001 }, // #7
+	{ 0x10d4U, ANCHOR  , 0x7002 }, // #8
+	{ 0x10dbU, ANCHOR  , 0x7003 }, // #9
 };
 static void setup_modem_paramters_according_part_no(void)
 {
