@@ -125,9 +125,11 @@ void RangeProcessingDetected(unsigned tag_no, unsigned anchor_no, unsigned flag,
 
 static unsigned char crc;
 static unsigned report_no;
+static unsigned respond_anchor_count;
 void MyRangeProcessingRoundStarted(void)
 {
 	crc8_init(crc);
+	respond_anchor_count = 0;
 }
 
 void ReportRangeResult(unsigned tag_no, unsigned anchor_no, unsigned dist)
@@ -136,13 +138,15 @@ void ReportRangeResult(unsigned tag_no, unsigned anchor_no, unsigned dist)
 	CRC8_16(crc, anc);
 	CRC8_32(crc, dist);
 	UartPrint("%04X %08X;", anchor_no, dist);
+	respond_anchor_count++;
 }
 
 void MyRangeProcessingRoundFinished(void)
 {
+	unsigned wait_round = respond_anchor_count ? 1 : 16; // if no response from any anchors, slow down.
 	CRC8_32(crc, report_no);
 	UartPrint("%08X %02X\r\n", report_no++, crc);
-	HRTimeNAdd(&range_start_time, MAX_ANCHOR* MAX_TAG, &range_period);
+	HRTimeNAdd(&range_start_time, wait_round * MAX_ANCHOR * MAX_TAG, &range_period);
 }
 
 int __weak usleep(useconds_t useconds)
