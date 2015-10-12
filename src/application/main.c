@@ -182,35 +182,53 @@ void process_deca_irq(void)
 
 }
 
-static struct part_configuration_t {
-	uint32 part_low;
-	uint32 mode;
-	uint32 no;
-} part_configuration_tab[] = {
-	{ 0x1AA7U, LISTENER, 0x0002 }, // #1
-	{ 0x2415U, ANCHOR  , 0x0001 }, // #2
-	{ 0x0b5fU, ANCHOR  , 0x0002 }, // #3
-	{ 0x0242U, ANCHOR  , 0x0003 }, // #4
-	{ 0x101eU, LISTENER, 0x0001 }, // #5
-	{ 0x1024U, ANCHOR  , 0x7000 }, // #6
-	{ 0x104aU, ANCHOR  , 0x7001 }, // #7
-	{ 0x10d4U, ANCHOR  , 0x7002 }, // #8
-	{ 0x10dbU, ANCHOR  , 0x7003 }, // #9
-};
-static void setup_modem_paramters_according_part_no(void)
+#define SW1_0					GPIO_Pin_0
+#define SW1_1					GPIO_Pin_1
+#define SW1_2					GPIO_Pin_2
+#define SW1_3					GPIO_Pin_3
+#define SW1_4					GPIO_Pin_4
+#define SW1_5					GPIO_Pin_5
+#define SW1_GPIO                GPIOC
+
+static unsigned get_switch_value(void)
 {
-	size_t i;
-	uint32 get_part(void);
-	uint32 part = get_part();
-	for (i = 0; i < sizeof(part_configuration_tab)/ sizeof(part_configuration_tab[0]); i++){
-		if ((part & 0xFFFFU) == part_configuration_tab[i].part_low) {
-			const struct part_configuration_t *p = &part_configuration_tab[i];
-			instance_anchaddr = p->no;
-			instance_mode     = p->mode;
-			break;
-		}
+	GPIO_InitTypeDef GPIO_InitStructure;
+	unsigned int v0, v1, v2, v3, v4, v5, v;
+	//Enable GPIO used for SW1 switch setting
+	GPIO_InitStructure.GPIO_Pin = SW1_0 | SW1_1 | SW1_2 | SW1_3 | SW1_4 | SW1_5;
+	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN_FLOATING;
+	GPIO_Init(SW1_GPIO, &GPIO_InitStructure);
+
+	v0 = !GPIO_ReadInputDataBit(SW1_GPIO, SW1_0);
+	v1 = !GPIO_ReadInputDataBit(SW1_GPIO, SW1_1);
+	v2 = !GPIO_ReadInputDataBit(SW1_GPIO, SW1_2);
+	v3 = !GPIO_ReadInputDataBit(SW1_GPIO, SW1_3);
+	v4 = !GPIO_ReadInputDataBit(SW1_GPIO, SW1_4);
+	v5 = !GPIO_ReadInputDataBit(SW1_GPIO, SW1_5);
+	v = v0| (v1<<1) | (v2 << 2) | (v3 << 3) | (v4 << 4) | (v5 << 5);
+	return v;
+
+}
+
+static void setup_modem_paramters_according_switch(void)
+{
+	unsigned switch_value = get_switch_value();
+	unsigned is_anchor = !!(switch_value & (1 << 5)); // switch 5
+	unsigned no = switch_value & ((1<<5) - 1);        // switch 4-0
+	if (is_anchor) {
+		unsigned group_id, member_id;
+		member_id = no & 7;
+		group_id  = no >> 3;
+		instance_anchaddr = (group_id << 8) | member_id;
+
+		instance_mode = ANCHOR;
+	} else {
+		instance_anchaddr = no;
+		instance_mode = LISTENER;
 	}
 }
+
+
 
 /*
  * @fn      main()
@@ -226,7 +244,7 @@ int main(void)
 
     spi_peripheral_init();
 
-    setup_modem_paramters_according_part_no();
+    setup_modem_paramters_according_switch();
 
     port_DisableEXT_IRQ(); //disable ScenSor IRQ until we configure the device
 
